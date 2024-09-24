@@ -109,6 +109,11 @@
 ;; save on find-file
 (add-to-list 'super-save-hook-triggers 'find-file-hook)
 
+
+
+(if (not (eq system-type 'windows))
+    (after! vterm (setq vterm-shell "fish")))
+
 ;; Keymaps
 
 (require 'key-chord)

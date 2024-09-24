@@ -108,12 +108,6 @@
                                         ; infrastructure as code
        tree-sitter                    ; syntax and parsing, sitting in a tree...
        ;;upload            ; map local to remote projects via ssh/ftp
-
-       :os
-       (:if IS-MAC macos)
-                                        ; improve compatibility with macOS
-       tty                              ; improve the terminal Emacs experience
-
        :lang
        ;;agda              ; types of types of types of types...
        ;;beancount         ; mind the GAAP
