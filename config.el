@@ -38,20 +38,9 @@
 ;; other doom's official themes:
 ;;   https://github.com/doomemacs/themes
 (setq doom-theme 'doom-dracula) ;; doom-one doom-dracula doom-nord
-(if (eq system-type 'darwin)
-    ;; Transparent Backgroud - for macOS
-    ;;(set-frame-parameter (selected-frame) 'alpha '(<active> . <inactive>))
-    ;;(set-frame-parameter (selected-frame) 'alpha <both>)
-    (progn
-      (set-frame-parameter (selected-frame) 'alpha '(85 . 70))
-      (add-to-list 'default-frame-alist '(alpha . (85 . 70))))
-  ;; Transparent Background - for Linux Xorg/Wayland
-  (set-frame-parameter nil 'alpha-background 93) ; For current frame
-  (add-to-list 'default-frame-alist '(alpha-background . 93))); For all new frames henceforth
-
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
-(setq display-line-numbers-type t)
+(setq display-line-numbers-type 'relative)
 (setq warning-minimum-level :error)
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -109,10 +98,9 @@
 ;; save on find-file
 (add-to-list 'super-save-hook-triggers 'find-file-hook)
 
-
-
-(if (not (eq system-type 'windows))
-    (after! vterm (setq vterm-shell "fish")))
+(when (not (eq system-type 'windows))
+  (require 'vterm)
+  (after! vterm (setq vterm-shell "fish")))
 
 ;; Keymaps
 
