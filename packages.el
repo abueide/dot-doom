@@ -10,6 +10,11 @@
 (package! key-chord)
 (package! key-seq)
 (package! space-chord)
+(package! treemacs)
+(package! treemacs-evil)
+(package! treemacs-projectile)
+(package! treemacs-icons-dired)
+(package! treemacs-magit)
 
 ;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
 ;; (package! some-package)

@@ -1,4 +1,4 @@
-;;; init.el -*- lexical-binding: t; -*-
+;; init.el -*- lexical-binding: t; -*-
 
 ;; This file controls what Doom modules are enabled and what order they load
 ;; in. Remember to run 'doom sync' after modifying it!
@@ -13,8 +13,6 @@
 ;;
 ;;      Alternatively, press 'gd' (or 'C-c c d') on a module to browse its
 ;;      directory (for easy access to its source code).
-
-
 (doom! :input
        ;;bidi              ; (tfel ot) thgir etirw uoy gnipleh
        ;;chinese
@@ -33,7 +31,7 @@
        ;;deft              ; notational velocity for Emacs
        doom                             ; what makes DOOM look the way it does
        doom-dashboard                   ; a nifty splash screen for Emacs
-       ;;doom-quit         ; DOOM quit-message prompts when you quit Emacs
+       doom-quit         ; DOOM quit-message prompts when you quit Emacs
        ;; (emoji +unicode) ; Emacs 29 provides native support for inserting Unicode emojis.
                                         ; 🙂
        hl-todo            ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
@@ -75,10 +73,10 @@
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
-       ;;eshell            ; the elisp shell that works everywhere
-       ;;shell             ; simple shell REPL for Emacs
+       eshell            ; the elisp shell that works everywhere
+       shell             ; simple shell REPL for Emacs
        ;;term              ; basic terminal emulator for Emacs
-       vterm
+       ;;vterm
 
        :checkers
        syntax                        ; tasing you for every semicolon you forget
@@ -92,7 +90,7 @@
        ;;collab            ; buffers with friends
        ;;debugger          ; FIXME stepping through code, to help you add bugs
        ;;direnv
-       (docker)
+       ;;(docker)
        editorconfig      ; let someone else argue about tabs vs spaces
        ;;ein               ; tame Jupyter notebooks with emacs
        (eval +overlay)
@@ -132,25 +130,25 @@
        fsharp            ; ML stands for Microsoft's Language
        ;;fstar             ; (dependent) types and (monadic) effects and Z3
        ;;gdscript          ; the language you waited for
-       (go +lsp +tree-sitter)  ;; disable go-mode, use lsp-bridge instead
+       ;;(go +lsp +tree-sitter)  ;; disable go-mode, use lsp-bridge instead
                                         ; the hipster dialect
        ;;(graphql)    ; Give queries a REST
-       (haskell)    ; a language that's lazier than I am
+       ;;(haskell)    ; a language that's lazier than I am
        ;;hy                ; readability of scheme w/ speed of python
        ;;idris             ; a language you can depend on
        (json +lsp +tree-sitter)
                                         ; At least it ain't XML
-       (java +lsp +tree-sitter)
+       ;;(java +lsp +tree-sitter)
                                         ; the poster child for carpal tunnel syndrome
        (javascript +lsp +tree-sitter)
                                         ; all(hope(abandon(ye(who(enter(here))))))
        ;;julia             ; a better, faster MATLAB
        kotlin            ; a better, slicker Java(Script)
-       (latex)
+       ;;(latex)
                                         ; writing papers in Emacs has never been so fun
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
-       (lua +lsp +tree-sitter)
+       ;;(lua +lsp +tree-sitter)
                                         ; one-based indices? one-based indices
        (markdown +grip)
                                         ; writing docs for people to ignore
@@ -162,7 +160,7 @@
        ;;php               ; perl's insecure younger brother
        ;;plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
-       (python +lsp +tree-sitter +pyright)
+       ;;(python +lsp +tree-sitter +pyright)
                                         ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket           ; a DSL for DSLs
@@ -170,10 +168,10 @@
        ;;rest              ; Emacs as a REST client
        ;;rst               ; ReST in peace
        ;;(ruby +rails)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
-       (rust +lsp +tree-sitter)
+       ;;(rust +lsp +tree-sitter)
                                         ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
-       scala             ; java, but good
-       (scheme +guile)
+       ;;scala             ; java, but good
+       ;;(scheme +guile)
                                         ; a fully conniving family of lisps
        (sh +lsp +tree-sitter)
                                         ; she sells {ba,z,fi}sh shells on the C xor
@@ -185,7 +183,7 @@
                                         ; support for various web languages, including HTML5, CSS, SASS/SCSS, Pug/Jade/Slim, and more
        (yaml +lsp +tree-sitter)
                                         ; JSON, but readable
-       zig               ; C, but simpler
+       ;;zig               ; C, but simpler
 
        :email
        ;;(mu4e +org +gmail)
