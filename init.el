@@ -42,7 +42,7 @@
        (popup +defaults)
                                         ; tame sudden yet inevitable temporary windows
        tabs                             ; a tab bar for Emacs
-       treemacs                 ; a project drawer, like neotree but cooler
+       (treemacs +lsp)                 ; a project drawer, like neotree but cooler
        unicode                  ; extended unicode support for various languages
        (vc-gutter +pretty)
                                         ; vcs diff in the fringe
@@ -80,7 +80,7 @@
 
        :checkers
        syntax                        ; tasing you for every semicolon you forget
-       (spell +flyspell)
+       ;; (spell +flyspell)
                                         ; tasing you for misspelling mispelling
        grammar                          ; tasing grammar mistake every you make
 
@@ -156,7 +156,7 @@
        ;;(nix +lsp +tree-sitter)
                                         ; I hereby declare "nix geht mehr!"
        ;;ocaml             ; an objective camel
-       (org +pandoc +hugo +jupyter)  ; organize your plain life in plain text
+       (org +pandoc +hugo +roam2 +journal +dragndrop +contacts)  ; organize your plain life in plain text
        ;;php               ; perl's insecure younger brother
        ;;plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional

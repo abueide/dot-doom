@@ -26,8 +26,10 @@
 
 ;;Startup
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
+(setq org-return-follows-link  t)
 
 (setq projectile-project-search-path '("~/work/projects" "~/work/config"))
+(projectile-add-known-project "~/.config/doom")
 
 (if (eq system-type 'windows-nt)
     (setq doom-font (font-spec :family "JetBrainsMono NFM" :size 18)
@@ -106,6 +108,7 @@
 (map! :map 'evil-normal-state-map
       :leader
       "j l" 'evil-join
+      "p v" '+treemacs/toggle
       )
 
 (map! :map 'evil-normal-state-map
