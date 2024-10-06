@@ -22,23 +22,23 @@ If the command succeeds, the term window is closed, otherwise it stays open."
          (buffer (get-buffer-create buffer-name)))
     (run-command--log "Creating term buffer: %s" buffer-name)
     (with-current-buffer buffer
-      (term-mode))
+      (term-mode)
+      (term-exec buffer "run-command" "bash" nil (list "-l" "-i" "-c" command)))
     (display-buffer-at-bottom buffer '((window-height . 0.25)))
     (select-window (get-buffer-window buffer))
     (evil-normal-state)
-    (let ((process (start-process "run-command" buffer "bash" "-l" "-i" "-c" command)))
-      (set-process-sentinel process
-                            (lambda (proc _event)
-                              (let ((exit-code (process-exit-status proc))
-                                    (output (with-current-buffer (process-buffer proc)
-                                              (string-trim (buffer-string)))))
-                                (run-command--log "Process finished with exit code: %d" exit-code)
-                                (if (= exit-code 0)
-                                    (progn
-                                      (run-command--log "Command succeeded, closing window.")
-                                      (delete-window (get-buffer-window buffer)))
-                                  (run-command--log "Command failed, keeping window open."))
-                                (message "Command output: %s\nExit code: %d" output exit-code)))))))
+    (set-process-sentinel (get-buffer-process buffer)
+                          (lambda (proc _event)
+                            (let ((exit-code (process-exit-status proc))
+                                  (output (with-current-buffer (process-buffer proc)
+                                            (string-trim (buffer-string)))))
+                              (run-command--log "Process finished with exit code: %d" exit-code)
+                              (if (= exit-code 0)
+                                  (progn
+                                    (run-command--log "Command succeeded, closing window.")
+                                    (delete-window (get-buffer-window buffer)))
+                                (run-command--log "Command failed, keeping window open."))
+                              (message "Command output: %s\nExit code: %d" output exit-code))))))
 
 (defun run-selected-command ()
   "Run the currently selected text as a command using `run-command`."
@@ -68,14 +68,18 @@ are compared against EXPECTED-OUTPUT and EXPECTED-EXIT-CODE. If INPUT is
 provided, it will be sent to the process during execution."
   (let* ((buffer-name "*run-command-test*")
          (buffer (get-buffer-create buffer-name))
-         (process (start-process "run-command-test" buffer "bash" "-l" "-i" "-c" command))
          (finished nil)
          (output nil)
          (exit-code nil))
+    (with-current-buffer buffer
+      (term-mode)
+      (term-exec buffer "run-command-test" "bash" nil (list "-l" "-i" "-c" command)))
+    (display-buffer-at-bottom buffer '((window-height . 0.25)))
+    (select-window (get-buffer-window buffer))
     (when input
       (run-command--log "Sending input: %s" input)
-      (process-send-string process (concat input "\n")))
-    (set-process-sentinel process
+      (term-send-raw-string (concat input "\n")))
+    (set-process-sentinel (get-buffer-process buffer)
                           (lambda (proc _event)
                             (setq exit-code (process-exit-status proc))
                             (setq output (with-current-buffer (process-buffer proc)
@@ -118,7 +122,7 @@ output matches the input provided."
 
 (provide 'run-command)
 
-;; echo test
+;;; run-command.el ends here;; echo test
 ;; colmena fh
 ;; (run-command-tests)
 ;; (ert t)
