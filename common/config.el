@@ -20,7 +20,6 @@
 
 
 (use-package! super-save
-  :ensure t
   :init
   :config
   (super-save-mode +1)

@@ -1,72 +1,127 @@
-(defvar run-command-hide-default "onSuccess"
-  "Default value for the hide argument in run-command.")
+;;; run-command.el --- Execute commands in term buffer -*- lexical-binding: t -*-
+(require 'term)
+(require 'subr-x)
+(require 'evil)
+(require 'cl-lib)
+(require 'ert)  ; Emacs Lisp Testing Framework
 
-(defun run-selected-command (start end &optional hide)
-  "Execute the selected region as a COMMAND asynchronously."
-  (interactive "r")
-  (let ((command (buffer-substring-no-properties start end)))
-    (run-command command (or hide run-command-hide-default))))
+(defvar run-command-debug t "Enable debug statements for run-command functions.")
 
-(defun run-command (command &optional hide)
-  "Execute COMMAND asynchronously."
-  (interactive (list (read-string "Command: ")
-                     (read-string "Hide output (always, never, onSuccess, onError) [onSuccess]: " nil nil run-command-hide-default)))
-  (let* ((buffer-name "*command-output*")
+(defun run-command--log (message &rest args)
+  "Log MESSAGE with ARGS if `run-command-debug` is enabled."
+  (when run-command-debug
+    (apply #'message (concat "[run-command]: " message) args)))
+
+(defun run-command (command)
+  "Run COMMAND in a term buffer at the bottom of the screen.
+
+COMMAND is executed using `bash -l` in interactive mode.
+If the command succeeds, the term window is closed, otherwise it stays open."
+  (run-command--log "Starting run-command with command: %s" command)
+  (let* ((buffer-name "*run-command-output*")
          (buffer (get-buffer-create buffer-name)))
-    (run-command-setup-buffer buffer)
-    (let ((window (display-buffer-in-side-window buffer '((side . bottom)))))
-      (run-command-setup-window window))
-    (message "Starting process: %s" command)
-    (run-command-start-process command buffer hide)))
-
-(defun run-command-setup-buffer (buffer)
-  "Prepare BUFFER by erasing contents and disabling read-only mode."
-  (with-current-buffer buffer
-    (read-only-mode -1)
-    (erase-buffer)))
-
-(defun run-command-setup-window (window)
-  "Set up WINDOW by selecting it, entering normal state, and scrolling up."
-  (select-window window)
-  (when (fboundp 'evil-normal-state)
-    (evil-normal-state))
-  (goto-char (point-min)))
-
-(defun run-command-start-process (command buffer hide)
-  "Start COMMAND asynchronously and manage its output in BUFFER based on HIDE."
-  (let ((process (start-process-shell-command "command-process" buffer command)))
-    (set-process-sentinel process
-                          (lexical-let ((hide (if (and hide (not (string= hide ""))) hide run-command-hide-default)))
-                            (lambda (process event)
-                              (message "Process event: %s" event)
-                              (when (memq (process-status process) '(exit signal))
-                                (run-command-handle-process-exit process hide)))))))
-
-(defun run-command-handle-process-exit (process hide)
-  "Handle PROCESS exit by managing the output buffer based on HIDE option."
-  (let* ((exit-code (process-exit-status process))
-         (buffer (process-buffer process)))
-    (message "Process exited with code: %d" exit-code)
-    (setq hide (downcase hide))
+    (run-command--log "Creating term buffer: %s" buffer-name)
     (with-current-buffer buffer
-      (ansi-color-apply-on-region (point-min) (point-max))
-      (goto-char (point-min)))
-    (pcase hide
-      ((or "always" (and "onsuccess" (guard (zerop exit-code))))
-       (run-command-cleanup buffer))
-      ((or "never" (and "onerror" (guard (not (zerop exit-code)))))
-       (run-command-handle-failure buffer))
-      (_ (message "Invalid hide option: %s" hide)))))
+      (term-mode))
+    (display-buffer-at-bottom buffer '((window-height . 0.25)))
+    (select-window (get-buffer-window buffer))
+    (evil-normal-state)
+    (let ((process (start-process "run-command" buffer "bash" "-l" "-i" "-c" command)))
+      (set-process-sentinel process
+                            (lambda (proc _event)
+                              (let ((exit-code (process-exit-status proc))
+                                    (output (with-current-buffer (process-buffer proc)
+                                              (string-trim (buffer-string)))))
+                                (run-command--log "Process finished with exit code: %d" exit-code)
+                                (if (= exit-code 0)
+                                    (progn
+                                      (run-command--log "Command succeeded, closing window.")
+                                      (delete-window (get-buffer-window buffer)))
+                                  (run-command--log "Command failed, keeping window open."))
+                                (message "Command output: %s\nExit code: %d" output exit-code)))))))
 
-(defun run-command-cleanup (buffer)
-  "Clean up BUFFER and close its window."
-  (when (get-buffer-window buffer)
-    (delete-window (get-buffer-window buffer)))
-  (kill-buffer buffer)
-  (message "Process completed, buffer and window closed."))
+(defun run-selected-command ()
+  "Run the currently selected text as a command using `run-command`."
+  (interactive)
+  (run-command--log "Starting run-selected-command.")
+  (if (use-region-p)
+      (let ((command (buffer-substring-no-properties (region-beginning) (region-end))))
+        (run-command--log "Selected command: %s" command)
+        (run-command command))
+    (run-command--log "No region selected.")))
 
-(defun run-command-handle-failure (buffer)
-  "Handle process failure by making BUFFER read-only."
-  (with-current-buffer buffer
-    (read-only-mode 1))
-  (message "Process failed, buffer is read-only."))
+;;; Unit tests for run-command functions using ERT
+
+(defun run-command-test--setup ()
+  "Setup function for run-command unit tests."
+  (setq run-command-debug nil))
+
+(defun run-command-test--teardown ()
+  "Teardown function for run-command unit tests."
+  (setq run-command-debug t))
+
+(defun run-command-test--execute-and-check (command expected-output expected-exit-code &optional input)
+  "Execute COMMAND and verify the output and exit code.
+
+COMMAND is executed in a term buffer, and the output and exit code
+are compared against EXPECTED-OUTPUT and EXPECTED-EXIT-CODE. If INPUT is
+provided, it will be sent to the process during execution."
+  (let* ((buffer-name "*run-command-test*")
+         (buffer (get-buffer-create buffer-name))
+         (process (start-process "run-command-test" buffer "bash" "-l" "-i" "-c" command))
+         (finished nil)
+         (output nil)
+         (exit-code nil))
+    (when input
+      (run-command--log "Sending input: %s" input)
+      (process-send-string process (concat input "\n")))
+    (set-process-sentinel process
+                          (lambda (proc _event)
+                            (setq exit-code (process-exit-status proc))
+                            (setq output (with-current-buffer (process-buffer proc)
+                                           (string-trim (buffer-string))))
+                            (setq finished t)))
+    (let ((timeout 10) (elapsed 0))
+      (while (and (not finished) (< elapsed timeout))
+        (sit-for 0.1)
+        (setq elapsed (+ elapsed 0.1)))
+      (unless finished
+        (run-command--log "Timeout reached while waiting for command to complete.")
+        (setq finished t)))
+    (ert-info ((format "Testing command: %s" command))
+      (should (string-match-p expected-output output))  ; Check if output contains the expected substring
+      (should (= exit-code expected-exit-code)))))  ; Check if exit code matches expected value
+
+(ert-deftest run-command-test-echo ()
+  "Test that `echo test` returns `test` and exit code 0."
+  (run-command-test--execute-and-check "echo test" "test" 0))
+
+(ert-deftest run-command-test-invalid-command ()
+  "Test that `colmena fdh` returns a non-zero exit code."
+  (run-command-test--execute-and-check "colmena fdh" "unrecognized subcommand" 2))
+
+(ert-deftest run-command-test-user-input ()
+  "Test a command that requires user input.
+
+The command reads input and echoes it. The test ensures the echoed
+output matches the input provided."
+  (run-command-test--execute-and-check "read -p 'Enter something: ' input; echo $input" "test" 0 "test"))
+
+(defun run-command-tests ()
+  "Run all unit tests for run-command functions."
+  (interactive)
+  (run-command-test--setup)
+  (unwind-protect
+      (progn
+        (ert-run-tests-interactively t))
+    (run-command-test--teardown)))
+
+(provide 'run-command)
+
+;; echo test
+;; colmena fh
+;; (run-command-tests)
+;; (ert t)
+;;
+;; (setq debug-on-error t)
+;;
