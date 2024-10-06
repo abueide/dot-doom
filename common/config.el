@@ -1,23 +1,24 @@
 ;; Startup
-
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
+(setq shell-file-name (executable-find "bash"))
 
 ;; User Config
 
 (setq doom-theme 'doom-dracula)
 (setq display-line-numbers-type 'relative)
 (setq warning-minimum-level :error)
+(setq org-return-follows-link t)
 
 
 ;; Package Config
-
-(after! org (org-return-follows-link t)
-
+;;
+;;
 (use-package! org-roam
   :after org
   :config
   (org-roam-db-autosync-mode)
   )
+
 
 (use-package! super-save
   :ensure t

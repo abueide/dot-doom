@@ -13,7 +13,7 @@
 
 ;; Package Config
 
-(after! org (setq org-directory "~/work/notes"))
+(setq org-directory "~/work/notes")
 
 (use-package! projectile
   :init
