@@ -9,7 +9,6 @@
 (setq warning-minimum-level :error)
 (setq org-return-follows-link t)
 
-
 ;; Package Config
 ;;
 ;;
@@ -74,6 +73,7 @@
       )
     )
   )
+
 ;; Keymaps
 
 (use-package! key-chord
@@ -105,3 +105,9 @@
       "J" 'centaur-tabs-backward
       "K" 'centaur-tabs-forward
       )
+
+(map!
+ :desc "Run selected region as command"
+ :leader
+ :v "r c"
+ #'run-selected-command)

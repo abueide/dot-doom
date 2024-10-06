@@ -21,3 +21,7 @@
   (projectile-add-known-project "~/.config/doom")
   (projectile-add-known-project "~/notes")
   )
+
+;; Functions
+
+;; Keymaps

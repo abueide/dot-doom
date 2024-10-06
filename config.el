@@ -1,5 +1,6 @@
 
 (load! "common/config.el")
+(load! "lib/run-command.el")
 
 (let ((profile (getenv "EMACS_PROFILE")))
   (cond
