@@ -27,12 +27,15 @@
 ;; Keymaps
 
 (map! :leader
-      :desc "Colmena apply-local with current project root"
-      :mode nix-mode
-      "c l"
-      (lambda ()
-        (interactive)
-        (let ((project-root (projectile-project-root)))
-          (if project-root
-              (run-command (format "colmena apply-local --sudo --config %sflake.nix" project-root) "onSuccess")
-            (message "No project root found.")))))
+      (:prefix ("c" . "Colmena/Configuration")
+       :desc "Colmena apply-local --sudo"
+       "l" (lambda ()
+             (interactive)
+             (let ((command (format "colmena apply-local --sudo --config %sflake.nix" (projectile-project-root))))
+               (run-command command)))
+       :desc "Colmena apply --on <tag>"
+       "t" (lambda ()
+             (interactive)
+             (let* ((tag (read-string "Enter tag to apply on: "))
+                    (command (format "colmena apply --on %s --config %sflake.nix" tag (projectile-project-root))))
+               (run-command command)))))

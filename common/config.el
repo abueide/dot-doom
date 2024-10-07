@@ -110,3 +110,10 @@
  :leader
  :v "r c"
  #'run-selected-command)
+
+(map! :leader
+      :desc "List Flycheck errors"
+      :mode flycheck-mode
+      :nv
+      "e l" #'flycheck-list-errors
+      )

@@ -107,9 +107,3 @@
       (should (search-backward "test" nil t))
       (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))));;; run-command.el ends here;;
 
-;; echo test
-;; colmena fh
-;; (run-command-tests)
-;; (ert t)
-;;
-;; (setq debug-on-error t)
