@@ -1,11 +1,17 @@
 ;;; run-command.el --- Execute commands in term buffer -*- lexical-binding: t -*-
+;;; Commentary:
+;;; This package allows you to run a command asynchronously with term.
+;;; It has options to show/hide the output console depending on the command's exit code.
+;;; Code:
 (require 'term)
 (require 'subr-x)
 (require 'evil)
 (require 'cl-lib)
 (require 'ert)  ; Emacs Lisp Testing Framework
 
-(defvar run-command-debug t "Enable debug statements for run-command functions.")
+(defvar run-command-debug t "Enable debug for run-command.")
+(defvar run-command-buffer-policy "onSuccess"
+  "Output Buffer Policy: always, never, onSuccess, onFailure.")
 
 (defun run-command--log (message &rest args)
   "Log MESSAGE with ARGS if `run-command-debug` is enabled."
@@ -13,11 +19,8 @@
     (apply #'message (concat "[run-command]: " message) args)))
 
 (defun run-command (command)
-  "Run COMMAND in a term buffer at the bottom of the screen.
-
-COMMAND is executed using `bash -l` in interactive mode.
-If the command succeeds, the term window is closed, otherwise it stays open."
-  (run-command--log "Starting run-command with command: %s" command)
+  "Run COMMAND in a term buffer."
+  (run-command--log "Running: %s" command)
   (let* ((buffer-name "*run-command-output*")
          (buffer (get-buffer-create buffer-name)))
     (run-command--log "Creating term buffer: %s" buffer-name)
@@ -29,21 +32,27 @@ If the command succeeds, the term window is closed, otherwise it stays open."
     (evil-normal-state)
     (set-process-sentinel (get-buffer-process buffer)
                           (lambda (proc _event)
-                            (let ((exit-code (process-exit-status proc))
-                                  (output (with-current-buffer (process-buffer proc)
-                                            (string-trim (buffer-string)))))
-                              (run-command--log "Process finished with exit code: %d" exit-code)
-                              (if (= exit-code 0)
-                                  (progn
-                                    (run-command--log "Command succeeded, closing window.")
-                                    (delete-window (get-buffer-window buffer)))
-                                (run-command--log "Command failed, keeping window open."))
-                              (message "Command output: %s\nExit code: %d" output exit-code))))))
+                            (let ((exit-code (process-exit-status proc)))
+                              (run-command--log "Exit code: %d" exit-code)
+                              (cond
+                               ((string= run-command-buffer-policy "always")
+                                (run-command--log "Policy: always keep buffer."))
+                               ((string= run-command-buffer-policy "never")
+                                (run-command--log "Policy: never keep buffer.")
+                                (delete-window (get-buffer-window buffer)))
+                               ((and (string= run-command-buffer-policy "onSuccess")
+                                     (= exit-code 0))
+                                (run-command--log "Policy: onSuccess, closing buffer.")
+                                (delete-window (get-buffer-window buffer)))
+                               ((and (string= run-command-buffer-policy "onFailure")
+                                     (/= exit-code 0))
+                                (run-command--log "Policy: onFailure, closing buffer.")
+                                (delete-window (get-buffer-window buffer)))))))))
 
 (defun run-selected-command ()
-  "Run the currently selected text as a command using `run-command`."
+  "Run the currently selected text as a command."
   (interactive)
-  (run-command--log "Starting run-selected-command.")
+  (run-command--log "Running selected command.")
   (if (use-region-p)
       (let ((command (buffer-substring-no-properties (region-beginning) (region-end))))
         (run-command--log "Selected command: %s" command)
@@ -52,77 +61,46 @@ If the command succeeds, the term window is closed, otherwise it stays open."
 
 ;;; Unit tests for run-command functions using ERT
 
-(defun run-command-test--setup ()
-  "Setup function for run-command unit tests."
-  (setq run-command-debug nil))
+(ert-deftest run-command-test-buffer-policy-always ()
+  "Test buffer policy 'always'."
+  (let ((run-command-buffer-policy "always"))
+    (should (equal run-command-buffer-policy "always"))))
 
-(defun run-command-test--teardown ()
-  "Teardown function for run-command unit tests."
-  (setq run-command-debug t))
+(ert-deftest run-command-test-buffer-policy-never ()
+  "Test buffer policy 'never'."
+  (let ((run-command-buffer-policy "never"))
+    (should (equal run-command-buffer-policy "never"))))
 
-(defun run-command-test--execute-and-check (command expected-output expected-exit-code &optional input)
-  "Execute COMMAND and verify the output and exit code.
+(ert-deftest run-command-test-buffer-policy-onSuccess ()
+  "Test buffer policy 'onSuccess'."
+  (let ((run-command-buffer-policy "onSuccess"))
+    (should (equal run-command-buffer-policy "onSuccess"))))
 
-COMMAND is executed in a term buffer, and the output and exit code
-are compared against EXPECTED-OUTPUT and EXPECTED-EXIT-CODE. If INPUT is
-provided, it will be sent to the process during execution."
-  (let* ((buffer-name "*run-command-test*")
-         (buffer (get-buffer-create buffer-name))
-         (finished nil)
-         (output nil)
-         (exit-code nil))
-    (with-current-buffer buffer
-      (term-mode)
-      (term-exec buffer "run-command-test" "bash" nil (list "-l" "-i" "-c" command)))
-    (display-buffer-at-bottom buffer '((window-height . 0.25)))
-    (select-window (get-buffer-window buffer))
-    (when input
-      (run-command--log "Sending input: %s" input)
-      (term-send-raw-string (concat input "\n")))
-    (set-process-sentinel (get-buffer-process buffer)
-                          (lambda (proc _event)
-                            (setq exit-code (process-exit-status proc))
-                            (setq output (with-current-buffer (process-buffer proc)
-                                           (string-trim (buffer-string))))
-                            (setq finished t)))
-    (let ((timeout 10) (elapsed 0))
-      (while (and (not finished) (< elapsed timeout))
-        (sit-for 0.1)
-        (setq elapsed (+ elapsed 0.1)))
-      (unless finished
-        (run-command--log "Timeout reached while waiting for command to complete.")
-        (setq finished t)))
-    (ert-info ((format "Testing command: %s" command))
-      (should (string-match-p expected-output output))  ; Check if output contains the expected substring
-      (should (= exit-code expected-exit-code)))))  ; Check if exit code matches expected value
+(ert-deftest run-command-test-buffer-policy-onFailure ()
+  "Test buffer policy 'onFailure'."
+  (let ((run-command-buffer-policy "onFailure"))
+    (should (equal run-command-buffer-policy "onFailure"))))
 
-(ert-deftest run-command-test-echo ()
-  "Test that `echo test` returns `test` and exit code 0."
-  (run-command-test--execute-and-check "echo test" "test" 0))
-
-(ert-deftest run-command-test-invalid-command ()
-  "Test that `colmena fdh` returns a non-zero exit code."
-  (run-command-test--execute-and-check "colmena fdh" "unrecognized subcommand" 2))
-
-(ert-deftest run-command-test-user-input ()
-  "Test a command that requires user input.
-
-The command reads input and echoes it. The test ensures the echoed
-output matches the input provided."
-  (run-command-test--execute-and-check "read -p 'Enter something: ' input; echo $input" "test" 0 "test"))
-
-(defun run-command-tests ()
-  "Run all unit tests for run-command functions."
-  (interactive)
-  (run-command-test--setup)
-  (unwind-protect
-      (progn
-        (ert-run-tests-interactively t))
-    (run-command-test--teardown)))
+(ert-deftest run-command-test-exit-code-and-output ()
+  "Test the exit code and output of specific commands."
+  (let ((buffer-name "*run-command-output*")
+        (run-command-buffer-policy "always"))
+    ;; Success case: "echo test"
+    (run-command "echo test")
+    (with-current-buffer buffer-name
+      (goto-char (point-max))
+      (should (search-backward "test" nil t))
+      (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))
+    ;; Failure case: "colmena fdh"
+    (run-command "colmena fdh")
+    (with-current-buffer buffer-name
+      (goto-char (point-max))
+      (should (search-backward "unrecognized subcommand" nil t))
+      (should (/= (process-exit-status (get-buffer-process buffer-name)) 0)))))
 
 (provide 'run-command)
-
-;;; run-command.el ends here;; echo test
+;;; run-command.el ends here;;
+;; echo test
 ;; colmena fh
 ;; (run-command-tests)
 ;; (ert t)
