@@ -12,7 +12,7 @@
 (defvar run-command-debug t "Enable debug for run-command.")
 (defvar run-command-buffer-policy "onSuccess"
   "Output buffer policy: always, never, onSuccess, onFailure.")
-(defvar run-command-shell "bash"
+(defvar run-command-shell "bash.exe"
   "Default shell to use for running commands. Can be set to bash, fish, or zsh.")
 
 (defun run-command--log (message &rest args)
