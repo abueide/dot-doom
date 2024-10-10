@@ -6,6 +6,9 @@
 ;; use 'M-x doom/reload'.
 
 
+(package! platformio-mode)
+(package! ccls)
+(package! arduino-mode)
 
 ;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
 ;; (package! some-package)

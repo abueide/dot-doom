@@ -1,4 +1,13 @@
-(load! "common/packages.el")
+(package! super-save)
+(package! key-chord)
+(package! key-seq)
+(package! space-chord)
+(package! treemacs)
+(package! treemacs-icons-dired)
+;;(package! org-super-agenda)
+(package! exec-path-from-shell)
+;;(package! org-projectile)
+
 
 (let ((profile (getenv "EMACS_PROFILE")))
   (cond

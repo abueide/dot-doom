@@ -20,8 +20,8 @@
   (when run-command-debug
     (apply #'message (concat "[run-command]: " message) args)))
 
-(defun run-command (command &optional shell)
-  "Run COMMAND in a term buffer using SHELL."
+(defun run-command (command &optional shell on-success on-failure)
+  "Run COMMAND in a term buffer using SHELL"
   (let ((shell-to-use (or shell run-command-shell)))
     (run-command--log "Running: %s with shell: %s" command shell-to-use)
     (let* ((buffer-name "*run-command-output*")
@@ -50,7 +50,12 @@
                                  ((and (string= run-command-buffer-policy "onFailure")
                                        (/= exit-code 0))
                                   (run-command--log "Policy: onFailure, closing buffer.")
-                                  (delete-window (get-buffer-window buffer))))))))))
+                                  (delete-window (get-buffer-window buffer))))
+                                ;; Execute hooks based on exit code
+                                (if (= exit-code 0)
+                                    (when on-success (funcall on-success))
+                                  (when on-failure (funcall on-failure)))))))))
+
 
 (defun run-selected-command (&optional shell)
   "Run the currently selected text in SHELL."

@@ -22,15 +22,32 @@
   (projectile-add-known-project "~/notes")
   )
 
+;; Ensure LSP is set to use the ccls language server for C and C++
+(after! lsp-mode
+  (setq lsp-completion-provider t)  ;; Optional, for better completion behavior
+  (setq lsp-enabled-clients '(ccls))
+  ;; (setq lsp-clients-ccls-executable "ccls")  ;; Uncomment this line if you need to manually specify the ccls binary
+  )
+
+;; Enable LSP and PlatformIO for C, C++, and Arduino files
+(after! platformio-mode
+  (add-to-list 'auto-mode-alist '("\\.ino\\'" . arduino-mode))  ;; Associate .ino files with arduino-mode
+  (dolist (hook '(c-mode-hook c++-mode-hook arduino-mode-hook))  ;; Add hooks for C, C++, and Arduino files
+    (add-hook hook (lambda ()
+                     (lsp-deferred)  ;; Enable lsp-mode deferred loading
+                     (platformio-conditionally-enable)))))  ;; Enable platformio-mode when appropriate
+
 ;; Functions
 
 ;; Keymaps
 
-(map! :leader
+(map! :localleader
+      :mode nix-mode
       (:prefix ("c" . "Colmena/Configuration")
        :desc "Colmena apply-local --sudo"
        "l" (lambda ()
              (interactive)
+
              (let ((command (format "colmena apply-local --sudo --config %sflake.nix" (projectile-project-root))))
                (run-command command)))
        :desc "Colmena apply --on <tag>"
