@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (defun run-external-command (command)
   "Run COMMAND using WezTerm with bash -l -i -c, pipe output to a temporary file, and print a message when the process finishes."
   (interactive "sCommand to run: ")
@@ -12,10 +13,42 @@
 
 (defun run-external-command--create-sentinel (output-file exit-code-file)
   "Create a sentinel function to handle the process events and use OUTPUT-FILE and EXIT-CODE-FILE."
+  (message (format "received output-file %s" output-file))
+  (message (format "received exit-code-file %s" exit-code-file))
   (lambda (process event)
     (when (string= event "finished\n")
-      (message "Command finished. Output written to: %s" output-file)
-      (message "Exit code written to: %s" exit-code-file))))
+      (let ((exit-code (with-temp-buffer
+                         (insert-file-contents exit-code-file)
+                         (string-to-number (buffer-string))))
+            (command-output (with-temp-buffer
+                              (insert-file-contents output-file)
+                              (buffer-string))))
+        (message "%s" exit-code)
+        (message "%s" command-output)
+        (delete-file output-file)
+        (delete-file exit-code-file)
+        (run-external-command--exit-hook exit-code command-output)
+        )
+      )))
+
+(defun run-external-command--exit-hook (exit-code command-output)
+  "Default exit hook that handles non-zero EXIT-CODE by displaying COMMAND-OUTPUT in a buffer."
+  (if (/= exit-code 0)
+      (with-current-buffer (get-buffer-create "*Command Output*")
+        (erase-buffer)
+        (insert (format "Command exited with code %d\n\n" exit-code))
+        (insert command-output)
+        (display-buffer (current-buffer)))
+    (message "Command completed successfully.")))
+
+(defun run-selected-command ()
+  "Run the currently selected text as a command using `run-external-command'."
+  (interactive)
+  (if (use-region-p)
+      (let ((command (buffer-substring-no-properties (region-beginning) (region-end))))
+        (run-external-command command))
+    (message "No region selected.")))
+
 
 
 ;; echo test
