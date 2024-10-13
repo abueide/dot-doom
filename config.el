@@ -1,6 +1,5 @@
 ;; Load libs
-(load! "lib/run-command.el")
-
+(add-to-list 'load-path (expand-file-name "lib" doom-user-dir))
 ;; Startup
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (setq shell-file-name (executable-find "bash"))
@@ -30,6 +29,33 @@
   (setq auto-save-default nil)
   (add-to-list 'super-save-hook-triggers 'find-file-hook)
   )
+
+(use-package! abysl-term
+  :load-path "lib"
+  :config
+  (map! :leader
+        :prefix ("r" . "run")
+        :desc "Run selected text" "c" #'abysl-term-run-selected)
+  (map! :leader
+        :prefix ("r" . "run")
+        :desc "Run previous command" "p" #'abysl-term-run-previous)
+
+  (map! :leader
+        :mode nix-mode
+        :prefix ("c" . "colmena")
+        :desc "Colmena apply-local --sudo" "l"
+        (lambda ()
+          (interactive)
+          (abysl-term-run "colmena apply-local --sudo"))
+
+        :desc "Colmena apply with tags" "a"
+        (lambda ()
+          (interactive)
+          (let* ((tags (read-string "Enter tags (space or comma separated): "))
+                 (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
+            (abysl-term-run (format "colmena apply --on %s --config %sflake.nix" formatted-tags (projectile-project-root))))))
+  )
+
 
 (after! exec-path-from-shell (exec-path-from-shell-initialize))
 
@@ -109,12 +135,6 @@
       "K" 'centaur-tabs-forward
       )
 
-(map!
- :desc "Run selected region as command"
- :leader
- :v "r c"
- #'run-selected-command)
-
 (map! :leader
       :desc "List Flycheck errors"
       :mode flycheck-mode
@@ -122,16 +142,15 @@
       "e l" #'flycheck-list-errors
       )
 
-(map! :leader
-      :desc "Sync Doom and Restart"
-      :nv
-      "q t" (lambda ()
-              (interactive)
-              (run-command "doom sync"
-                           nil
-                           (lambda () (doom/restart-and-restore))
-                           (lambda () (message "Doom sync failed.")))))
-
+                                        ;(map! :leader
+                                        ;      :desc "Sync Doom and Restart"
+;; :nv
+;; "q t" (lambda ()
+;;         (interactive)
+;;         (abysl-term-run "doom sync"
+;;                      nil
+;;                      (lambda () (doom/restart-and-restore))
+;;                      (lambda () (message "Doom sync failed.")))))
 
 
 ;; Load Profile
