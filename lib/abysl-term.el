@@ -36,7 +36,7 @@
   :type '(repeat string)
   :group 'abysl-term)
 
-(defcustom abysl-term-shell "fish"
+(defcustom abysl-term-shell "bash"
   "The shell to use, e.g., 'bash', 'zsh', 'fish'."
   :type 'string
   :group 'abysl-term)
@@ -73,13 +73,17 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
          (script-file (nth 0 temp-files))
          (output-file (nth 1 temp-files))
          ;; Build the full command with wezterm, script file, and output handling
-         (full-command (append (list term) term-args (list "script" output-file "-c" script-file)))
+         (full-command
+          (if nil
+              (append (list term) term-args (list sh "script" output-file "-c" script-file))
+            ;; When the condition is false (using `tee`)
+            (append (list term) term-args (list sh "-c" (format "stdbuf -oL -eL %s 2>&1 | tee %s" script-file output-file)))
+            ))
          ;; Merge user-defined exit hooks with the optional current exit hook
          (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
-
     ;; Run the terminal process
     (abysl-term--run-terminal full-command temp-files exit-hooks)))
-
+;; colmena fdh
 ;; Run the currently selected text as a command
 (defun abysl-term-run-selected ()
   "Run the currently selected text as a command."
@@ -135,10 +139,10 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
                    (insert-file-contents output-file)
                    (buffer-string))))
     ;; Clean up all temp files by iterating through the list
-    (dolist (file tmp-files)
-      (when (file-exists-p file)
-        (delete-file file)
-        ))
+    ;; (dolist (file tmp-files)
+    ;;   (when (file-exists-p file)
+    ;;     (delete-file file)
+    ;;     ))
     ;; Handle output based on exit-codes
     (abysl-term--handle-output exit-codes output)
     ;; Call user-defined hooks
@@ -187,7 +191,7 @@ If both are nil, return an empty list to ensure safe iteration."
 (defun abysl-term--generate-command (shell command-str)
   "Generate temporary files for the command, output, and exit code, and write the command to a temporary script file."
   (let* ((full-shell (abysl-term--find-shell-path shell))  ;; Get full shell path
-         (script-file (make-temp-file "abysl-command-"))
+         (script-file (make-temp-file "command-"))
          (output-file (make-temp-file "command-output-"))
          (exit-code-file (make-temp-file "command-exit-code-")))
     ;; Write the shell command to the script file
