@@ -62,8 +62,6 @@ Each function receives two arguments: exit code and command output."
   "Run COMMAND in a terminal, with optional overrides for TERMINAL, TERMINAL-ARGS, and SHELL.
 Optionally run a CURRENT-EXIT-HOOK for this specific command."
   (interactive)
-  (message "[abysl-term-run] Command Args: %s, Terminal: %s, Terminal Args: %s, Shell: %s"
-           command terminal terminal-args shell)
   (setq abysl-term--last-command (list command terminal terminal-args shell current-exit-hook))
   (let* ((term (or terminal abysl-term-terminal))
          (term-args (or terminal-args abysl-term-terminal-args))
@@ -88,7 +86,6 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
   (interactive)
   (if (use-region-p)
       (let ((command (buffer-substring-no-properties (region-beginning) (region-end))))
-        (message "[abysl-term-run-selected] Selected command: %s" command)
         (abysl-term-run command))
     (message "No region selected")))
 
@@ -98,7 +95,6 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
   (interactive)
   (if abysl-term--last-command
       (progn
-        (message "[abysl-term-run-previous] Running previous command: %s" abysl-term--last-command)
         (apply 'abysl-term-run abysl-term--last-command))
     (message "No previous command to run")))
 
@@ -107,9 +103,7 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
 (defun abysl-term--run-terminal (full-command tmp-files exit-hooks)
   "Run FULL-COMMAND in the terminal, handling process lifecycle using TMP-FILES.
 Run EXIT-HOOKS after process completion."
-  (message "[abysl-term--run-terminal] Terminal Command: %s, Buffer: *abysl-term-output*" full-command)
   ;; Print tmp-files for debugging
-  (abysl-term--message-tmp-files tmp-files "abysl-term--run-terminal")
   ;; Create the process using `make-process`
   (make-process
    :name "*abysl-term-output*"
@@ -122,18 +116,15 @@ Run EXIT-HOOKS after process completion."
 (defun abysl-term--process-sentinel (proc event tmp-files exit-hooks)
   "Sentinel function to handle process PROC events.
 Runs EXIT-HOOKS after process completion and processes output and exit code from TMP-FILES."
-  (message "[abysl-term--process-sentinel] Process event: %s" event)
-  (abysl-term--message-tmp-files tmp-files "process-sentinel")  ;; Pass prefix "process-sentinel" for logging
-
   ;; Proceed when the process finishes
   (when (string= event "finished\n")
     (let ((sentinel-exit-code (process-exit-status proc)))  ;; Capture sentinel exit code
       (abysl-term--default-exit-hook tmp-files)
-      (message "[abysl-term--process-sentinel] Sentinel exit code: %d" sentinel-exit-code))))
+      (if (not (eq sentinel-exit-code 0))
+          (error "[abysl-term--process-sentinel] Sentinel exit code: %d" sentinel-exit-code)))))
 
 (defun abysl-term--default-exit-hook (tmp-files)
   "Default exit hook to process the TMP-FILES and call user-defined exit hooks."
-  (abysl-term--message-tmp-files tmp-files "abysl-term--default-exit-hook")
   (let* ((output-file (nth 1 tmp-files))
          (exit-code-file (nth 2 tmp-files))
          (exit-codes (mapcar #'string-to-number
@@ -147,7 +138,6 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
     (dolist (file tmp-files)
       (when (file-exists-p file)
         (delete-file file)
-        (message "[abysl-term--default-exit-hook] Deleted file: %s" file)
         ))
     ;; Handle output based on exit-codes
     (abysl-term--handle-output exit-codes output)
@@ -224,7 +214,6 @@ If both are nil, return an empty list to ensure safe iteration."
 
 (defun abysl-term--get-command-str (command)
   "Convert COMMAND to a string if it is a list."
-  (message "[abysl-term--get-command-str] Command: %s" command)
   (if (listp command)
       (mapconcat 'identity command " ")
     command))
@@ -246,7 +235,3 @@ Warns if any file doesn't exist."
 
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
-;;;
-;;; echo test
-;;; colmena fdh
-;;; vim
