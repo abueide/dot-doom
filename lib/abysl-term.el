@@ -26,10 +26,9 @@
   "Run terminal commands with vterm or WezTerm."
   :group 'tools)
 
-(defcustom abysl-term-terminal 'wezterm
-  "The terminal to use: 'vterm' or 'wezterm'."
-  :type '(choice (const :tag "vterm" vterm)
-          (const :tag "WezTerm" wezterm))
+(defcustom abysl-term-terminal "wezterm"
+  "The terminal command to use, e.g., wezterm, vterm, etc."
+  :type 'string
   :group 'abysl-term)
 
 (defcustom abysl-term-terminal-args '("start" "--always-new-process" "--")
@@ -37,16 +36,9 @@
   :type '(repeat string)
   :group 'abysl-term)
 
-(defcustom abysl-term-shell 'bash
-  "The shell to use: 'bash', 'zsh', 'fish', etc."
-  :type '(choice (const :tag "bash" bash)
-          (const :tag "zsh" zsh)
-          (const :tag "fish" fish))
-  :group 'abysl-term)
-
-(defcustom abysl-term-shell-args '("-l" "-i" "-c")
-  "Arguments for the shell."
-  :type '(repeat string)
+(defcustom abysl-term-shell "fish"
+  "The shell to use, e.g., 'bash', 'zsh', 'fish'."
+  :type 'string
   :group 'abysl-term)
 
 (defcustom abysl-term-hide 'onSuccess
@@ -56,74 +48,39 @@
           (const :tag "Never" never))
   :group 'abysl-term)
 
+(defcustom abysl-term-user-exit-hooks nil
+  "A list of user-defined functions to run after the command completes.
+Each function receives two arguments: exit code and command output."
+  :type '(repeat function)
+  :group 'abysl-term)
+
 (defvar abysl-term--last-command nil
   "The last command run by `abysl-term-run'.")
 
-(defun abysl-term--get-command-str (command)
-  "Convert COMMAND to a string if it is a list."
-  (message "[abysl-term--get-command-str] Command: %s" command)
-  (if (listp command)
-      (mapconcat 'identity command " ")
-    command))
-
-(defun abysl-term--run-vterm (command-str shell shell-args buffer-name)
-  "Run COMMAND-STR in vterm using SHELL and SHELL-ARGS in BUFFER-NAME."
-  (require 'vterm)
-  (message "[abysl-term--run-vterm] Command: %s, Shell: %s, Shell Args: %s, Buffer: %s" command-str shell shell-args buffer-name)
-  (let ((buffer (get-buffer-create buffer-name)))
-    (with-current-buffer buffer
-      (vterm-mode)
-      (vterm-send-string (concat shell " " (mapconcat 'identity shell-args " ") " " command-str))
-      (vterm-send-return))
-    (abysl-term--handle-buffer-display buffer)))
-
-(defun abysl-term--run-wezterm (command-str terminal-args shell shell-args buffer-name)
-  "Run COMMAND-STR in WezTerm using TERMINAL-ARGS, SHELL, SHELL-ARGS in BUFFER-NAME."
-  (let ((wezterm-command (mapcar (lambda (arg) (if (symbolp arg) (symbol-name arg) arg))
-                                 (append terminal-args (list shell) shell-args (list command-str)))))
-    (message "[abysl-term--run-wezterm] WezTerm Command: %s" wezterm-command)
-    (apply 'start-process "*wezterm*" buffer-name "wezterm" wezterm-command))
-  (when (eq abysl-term-hide 'never)
-    (display-buffer buffer-name)))
-
-(defun abysl-term--handle-buffer-display (buffer)
-  "Handle the display behavior of BUFFER based on `abysl-term-hide`."
-  (message "[abysl-term--handle-buffer-display] Buffer: %s, Hide setting: %s" buffer abysl-term-hide)
-  (cond
-   ((eq abysl-term-hide 'onSuccess)
-    (set-process-sentinel (get-buffer-process buffer)
-                          (lambda (_proc event)
-                            (message "[abysl-term--handle-buffer-display] Process event: %s" event)
-                            (when (string-match-p "exited abnormally" event)
-                              (display-buffer buffer)))))
-   ((eq abysl-term-hide 'always)
-    (kill-buffer buffer))
-   ((eq abysl-term-hide 'never)
-    (display-buffer buffer))))
-
 ;; Function for running a command
-(defun abysl-term-run (command &optional terminal terminal-args shell shell-args)
-  "Run COMMAND in a terminal, with optional overrides for TERMINAL, TERMINAL-ARGS, SHELL, and SHELL-ARGS."
-  (message "[abysl-term-run] Command Args: %s, Terminal: %s, Terminal Args: %s, Shell: %s, Shell Args: %s" command terminal terminal-args shell shell-args)
+(defun abysl-term-run (command &optional terminal terminal-args shell current-exit-hook)
+  "Run COMMAND in a terminal, with optional overrides for TERMINAL, TERMINAL-ARGS, and SHELL.
+Optionally run a CURRENT-EXIT-HOOK for this specific command."
+  (interactive)
+  (message "[abysl-term-run] Command Args: %s, Terminal: %s, Terminal Args: %s, Shell: %s"
+           command terminal terminal-args shell)
+  (setq abysl-term--last-command (list command terminal terminal-args shell current-exit-hook))
   (let* ((term (or terminal abysl-term-terminal))
          (term-args (or terminal-args abysl-term-terminal-args))
          (sh (or shell abysl-term-shell))
-         (sh-args (or shell-args abysl-term-shell-args))
-         (buffer-name "*abysl-term-output*")
-         (command-str (abysl-term--get-command-str command)))
-    (message "[abysl-term-run] Command Vars - Command: %s, Terminal: %s, Terminal Args: %s, Shell: %s, Shell Args: %s" command terminal terminal-args shell shell-args)
-    (setq abysl-term--last-command (list command term term-args sh sh-args))
-    (cond
-     ((eq term 'vterm)
-      (abysl-term--run-vterm command-str sh sh-args buffer-name))
-     ((eq term 'wezterm)
-      (abysl-term--run-wezterm command-str term-args sh sh-args buffer-name)))))
+         ;; Flatten the full command into a single string
+         (command-str (abysl-term--get-command-str command))
+         ;; Generate temp script file, output file, and exit code file
+         (temp-files (abysl-term--generate-command sh command-str))
+         (script-file (nth 0 temp-files))
+         (output-file (nth 1 temp-files))
+         ;; Build the full command with wezterm, script file, and output handling
+         (full-command (append (list term) term-args (list "script" output-file "-c" script-file)))
+         ;; Merge user-defined exit hooks with the optional current exit hook
+         (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
 
-;; Function for running a command as a list of arguments
-(defun abysl-term-run-args (args &optional terminal terminal-args shell shell-args)
-  "Run a command as a list of ARGS, with optional overrides for TERMINAL, TERMINAL-ARGS, SHELL, and SHELL-ARGS."
-  (message "[abysl-term-run-args] Args: %s" args)
-  (abysl-term-run (mapconcat 'identity args " ") terminal terminal-args shell shell-args))
+    ;; Run the terminal process
+    (abysl-term--run-terminal full-command temp-files exit-hooks)))
 
 ;; Run the currently selected text as a command
 (defun abysl-term-run-selected ()
@@ -145,8 +102,151 @@
         (apply 'abysl-term-run abysl-term--last-command))
     (message "No previous command to run")))
 
+;; Internal helpers
+
+(defun abysl-term--run-terminal (full-command tmp-files exit-hooks)
+  "Run FULL-COMMAND in the terminal, handling process lifecycle using TMP-FILES.
+Run EXIT-HOOKS after process completion."
+  (message "[abysl-term--run-terminal] Terminal Command: %s, Buffer: *abysl-term-output*" full-command)
+  ;; Print tmp-files for debugging
+  (abysl-term--message-tmp-files tmp-files "abysl-term--run-terminal")
+  ;; Create the process using `make-process`
+  (make-process
+   :name "*abysl-term-output*"
+   :buffer "*abysl-term-output*"
+   :command full-command
+   :sentinel (lambda (proc event) (abysl-term--process-sentinel proc event tmp-files exit-hooks))
+   )
+  )
+
+(defun abysl-term--process-sentinel (proc event tmp-files exit-hooks)
+  "Sentinel function to handle process PROC events.
+Runs EXIT-HOOKS after process completion and processes output and exit code from TMP-FILES."
+  (message "[abysl-term--process-sentinel] Process event: %s" event)
+  (abysl-term--message-tmp-files tmp-files "process-sentinel")  ;; Pass prefix "process-sentinel" for logging
+
+  ;; Proceed when the process finishes
+  (when (string= event "finished\n")
+    (let ((sentinel-exit-code (process-exit-status proc)))  ;; Capture sentinel exit code
+      (abysl-term--default-exit-hook tmp-files)
+      (message "[abysl-term--process-sentinel] Sentinel exit code: %d" sentinel-exit-code))))
+
+(defun abysl-term--default-exit-hook (tmp-files)
+  "Default exit hook to process the TMP-FILES and call user-defined exit hooks."
+  (abysl-term--message-tmp-files tmp-files "abysl-term--default-exit-hook")
+  (let* ((output-file (nth 1 tmp-files))
+         (exit-code-file (nth 2 tmp-files))
+         (exit-codes (mapcar #'string-to-number
+                             (split-string (with-temp-buffer
+                                             (insert-file-contents exit-code-file)
+                                             (buffer-string)))))
+         (output (with-temp-buffer
+                   (insert-file-contents output-file)
+                   (buffer-string))))
+    ;; Clean up all temp files by iterating through the list
+    (dolist (file tmp-files)
+      (when (file-exists-p file)
+        (delete-file file)
+        (message "[abysl-term--default-exit-hook] Deleted file: %s" file)
+        ))
+    ;; Handle output based on exit-codes
+    (abysl-term--handle-output exit-codes output)
+    ;; Call user-defined hooks
+    (dolist (hook abysl-term-user-exit-hooks)
+      (funcall hook exit-codes output))))
+
+
+(defun abysl-term--show-buffer (exit-codes output)
+  "Create and display the buffer with EXIT-CODES and OUTPUT, stripping carriage returns."
+  (let ((buffer (get-buffer-create "*abysl-term-output*"))
+        (cleaned-output (abysl-term--strip-carriage-returns output)))
+    (with-current-buffer buffer
+      (read-only-mode -1)  ;; Disable read-only before inserting content
+      (erase-buffer)
+      (insert (propertize (format "Exit Codes: %s\nOutput:\n"
+                                  (mapconcat #'number-to-string exit-codes " "))
+                          'face 'font-lock-comment-face))
+      (insert cleaned-output)
+      (ansi-color-apply-on-region (point-min) (point-max))
+      (read-only-mode 1))  ;; Enable read-only after inserting content
+    ;; Open the buffer in a bottom window
+    (pop-to-buffer buffer '((display-buffer-at-bottom)))))
+
+(defun abysl-term--handle-output (exit-codes output)
+  "Handle displaying OUTPUT based on EXIT-CODES and the `abysl-term-hide` setting."
+  (cond
+   ;; If the setting is 'never', do nothing
+   ((eq abysl-term-hide 'never)
+    (message "[abysl-term--handle-hide] Output hidden due to 'never' setting"))
+
+   ;; If the setting is 'always', show the buffer
+   ((eq abysl-term-hide 'always)
+    (abysl-term--show-buffer exit-codes output))
+
+   ;; If the setting is 'onSuccess' and the command failed, show the buffer
+   ((and (eq abysl-term-hide 'onSuccess)
+         (cl-some (lambda (code) (/= code 0)) exit-codes))
+    (abysl-term--show-buffer exit-codes output))))
+
+(defun abysl-term--merge-exit-hooks (user-hooks current-exit-hook)
+  "Merge USER-HOOKS with the CURRENT-EXIT-HOOK.
+If both are nil, return an empty list to ensure safe iteration."
+  (let ((hooks (append (or user-hooks '()) (when current-exit-hook (list current-exit-hook)))))
+    hooks))
+
+(defun abysl-term--generate-command (shell command-str)
+  "Generate temporary files for the command, output, and exit code, and write the command to a temporary script file."
+  (let* ((full-shell (abysl-term--find-shell-path shell))  ;; Get full shell path
+         (script-file (make-temp-file "abysl-command-"))
+         (output-file (make-temp-file "command-output-"))
+         (exit-code-file (make-temp-file "command-exit-code-")))
+    ;; Write the shell command to the script file
+    (with-temp-file script-file
+      ;; Add the shebang with the full shell path
+      (insert (format "#!%s\n" full-shell))
+      ;; Add shell arguments and the command
+      (insert (format "%s\n" command-str))  ;; User command
+      ;; Add exit code capturing logic
+      (insert (if (string-match-p "fish" full-shell)
+                  (format "echo $pipestatus > %s\n" exit-code-file)
+                (format "echo ${PIPESTATUS[*]} > %s\n" exit-code-file))))
+    ;; Make the script file executable
+    (set-file-modes script-file #o755)
+    ;; Return the list of the script file, output file, and exit code file
+    (list script-file output-file exit-code-file)))
+
+(defun abysl-term--find-shell-path (shell)
+  "Find the full path of the SHELL if it's just a shell name, otherwise return the shell."
+  (if (file-name-absolute-p shell)
+      shell  ;; If shell is already an absolute path, return it
+    (or (executable-find shell)  ;; Look up shell in PATH
+        (error "Shell '%s' not found in PATH" shell))))  ;; Error if not found
+
+(defun abysl-term--get-command-str (command)
+  "Convert COMMAND to a string if it is a list."
+  (message "[abysl-term--get-command-str] Command: %s" command)
+  (if (listp command)
+      (mapconcat 'identity command " ")
+    command))
+
+(defun abysl-term--message-tmp-files (tmp-files prefix)
+  "Print the paths and contents of TMP-FILES for debugging purposes with a PREFIX label.
+Warns if any file doesn't exist."
+  (dolist (file tmp-files)
+    (if (file-exists-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (message "[%s] File: %s\nContents:\n%s" prefix file (buffer-string)))
+      (message "[%s] Warning: %s doesn't exist" prefix file))))
+
+(defun abysl-term--strip-carriage-returns (string)
+  "Remove carriage returns (^M) from STRING."
+  (replace-regexp-in-string "\r" "" string))
+
+
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
+;;;
 ;;; echo test
 ;;; colmena fdh
 ;;; vim
