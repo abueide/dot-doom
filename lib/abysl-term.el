@@ -74,8 +74,8 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
          (output-file (nth 1 temp-files))
          ;; Build the full command with wezterm, script file, and output handling
          (full-command
-          (if nil
-              (append (list term) term-args (list sh "script" output-file "-c" script-file))
+          (if (executable-find "script")
+              (append (list term) term-args (list "script" output-file "-c" script-file))
             ;; When the condition is false (using `tee`)
             (append (list term) term-args (list sh "-c" (format "stdbuf -oL -eL %s 2>&1 | tee %s" script-file output-file)))
             ))
@@ -83,7 +83,6 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
          (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
     ;; Run the terminal process
     (abysl-term--run-terminal full-command temp-files exit-hooks)))
-;; colmena fdh
 ;; Run the currently selected text as a command
 (defun abysl-term-run-selected ()
   "Run the currently selected text as a command."
@@ -235,7 +234,6 @@ Warns if any file doesn't exist."
 (defun abysl-term--strip-carriage-returns (string)
   "Remove carriage returns (^M) from STRING."
   (replace-regexp-in-string "\r" "" string))
-
 
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
