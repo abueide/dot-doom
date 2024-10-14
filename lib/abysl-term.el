@@ -210,10 +210,11 @@ If both are nil, return an empty list to ensure safe iteration."
 
 (defun abysl-term--find-shell-path (shell)
   "Find the full path of the SHELL if it's just a shell name, otherwise return the shell."
-  (if (file-name-absolute-p shell)
-      shell  ;; If shell is already an absolute path, return it
-    (or (executable-find shell)  ;; Look up shell in PATH
-        (error "Shell '%s' not found in PATH" shell))))  ;; Error if not found
+  (abysl-term--convert-to-unix-path
+   (if (file-name-absolute-p shell)
+       shell  ;; If shell is already an absolute path, return it
+     (or (executable-find shell)  ;; Look up shell in PATH
+         (error "Shell '%s' not found in PATH" shell)))))
 
 (defun abysl-term--get-command-str (command)
   "Convert COMMAND to a string if it is a list."
@@ -234,6 +235,19 @@ Warns if any file doesn't exist."
 (defun abysl-term--strip-carriage-returns (string)
   "Remove carriage returns (^M) from STRING."
   (replace-regexp-in-string "\r" "" string))
+
+(defun abysl-term--convert-to-unix-path (path)
+  "Convert a Windows-style PATH to Unix-style (e.g., C:/ becomes /c/),
+or return the path unchanged if it's already in Unix-style."
+  (cond
+   ;; If it's a Windows-style path (e.g., C:/), convert to Unix-style /c/
+   ((string-match "^\\([a-zA-Z]\\):/" path)
+    (let ((drive-letter (downcase (match-string 1 path))))
+      (replace-regexp-in-string "^\\([a-zA-Z]\\):/" (concat "/" drive-letter "/") path)))
+   ;; If it's already a Unix-style path (starts with /), return as is
+   ((string-match "^/" path) path)
+   ;; Otherwise, expand the path normally
+   (t (expand-file-name path))))
 
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
