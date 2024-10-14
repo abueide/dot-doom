@@ -76,8 +76,15 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
           (if (executable-find "script")
               (append (list term) term-args (list "script" output-file "-c" script-file))
             ;; When the condition is false (using `tee`)
-            (append (list term) term-args (list sh "-c" (format "stdbuf -oL -eL %s 2>&1 | tee %s" script-file output-file)))
-            ))
+            (append
+             (list term)
+             term-args
+             (list sh "-l" "-c"
+                   (format
+                    "stdbuf -oL -eL %s 2>&1 | tee %s"
+                    (abysl-term--convert-to-unix-path script-file)
+                    (abysl-term--convert-to-unix-path output-file)
+                    )))))
          ;; Merge user-defined exit hooks with the optional current exit hook
          (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
     ;; Run the terminal process
@@ -136,12 +143,11 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
          (output (with-temp-buffer
                    (insert-file-contents output-file)
                    (buffer-string))))
-    (abysl-term--message-tmp-files tmp-files "debug")
     ;; Clean up all temp files by iterating through the list
-    ;; (dolist (file tmp-files)
-    ;;   (when (file-exists-p file)
-    ;;     (delete-file file)
-    ;;     ))
+    (dolist (file tmp-files)
+      (when (file-exists-p file)
+        (delete-file file)
+        ))
     ;; Handle output based on exit-codes
     (abysl-term--handle-output exit-codes output)
     ;; Call user-defined hooks
@@ -201,8 +207,8 @@ If both are nil, return an empty list to ensure safe iteration."
       (insert (format "%s\n" command-str))  ;; User command
       ;; Add exit code capturing logic
       (insert (if (string-match-p "fish" full-shell)
-                  (format "echo $pipestatus > %s\n" exit-code-file)
-                (format "echo ${PIPESTATUS[*]} > %s\n" exit-code-file))))
+                  (format "echo $pipestatus > %s\n" (abysl-term--convert-to-unix-path exit-code-file))
+                (format "echo ${PIPESTATUS[*]} > %s\n" (abysl-term--convert-to-unix-path exit-code-file)))))
     ;; Make the script file executable
     (set-file-modes script-file #o755)
     ;; Return the list of the script file, output file, and exit code file
@@ -210,11 +216,14 @@ If both are nil, return an empty list to ensure safe iteration."
 
 (defun abysl-term--find-shell-path (shell)
   "Find the full path of the SHELL if it's just a shell name, otherwise return the shell."
-  (abysl-term--convert-to-unix-path
-   (if (file-name-absolute-p shell)
-       shell  ;; If shell is already an absolute path, return it
-     (or (executable-find shell)  ;; Look up shell in PATH
-         (error "Shell '%s' not found in PATH" shell)))))
+  (if (eq system-type 'windows-nt)
+      (concat "/bin/" shell)
+    (if (file-name-absolute-p shell)
+        shell  ;; If shell is already an absolute path, return it
+      (or (executable-find shell)  ;; Look up shell in PATH
+          (error "Shell '%s' not found in PATH" shell)))
+    )
+  )
 
 (defun abysl-term--get-command-str (command)
   "Convert COMMAND to a string if it is a list."
@@ -236,18 +245,29 @@ Warns if any file doesn't exist."
   "Remove carriage returns (^M) from STRING."
   (replace-regexp-in-string "\r" "" string))
 
-(defun abysl-term--convert-to-unix-path (path)
-  "Convert a Windows-style PATH to Unix-style (e.g., C:/ becomes /c/),
-or return the path unchanged if it's already in Unix-style."
-  (cond
-   ;; If it's a Windows-style path (e.g., C:/), convert to Unix-style /c/
-   ((string-match "^\\([a-zA-Z]\\):/" path)
-    (let ((drive-letter (downcase (match-string 1 path))))
-      (replace-regexp-in-string "^\\([a-zA-Z]\\):/" (concat "/" drive-letter "/") path)))
-   ;; If it's already a Unix-style path (starts with /), return as is
-   ((string-match "^/" path) path)
-   ;; Otherwise, expand the path normally
-   (t (expand-file-name path))))
+(defun apply-all (str replacements)
+  "Apply all regex REPLACEMENTS to STR."
+  (cl-reduce
+   (lambda (acc pair)
+     (replace-regexp-in-string (car pair) (cadr pair) acc))
+   replacements
+   :initial-value str))
 
+;; (abysl-term--convert-to-unix-path "C:\\Program Files\\Git")
+;; )(abysl-term--convert-to-unix-path "/c/test/path")
+(defun abysl-term--convert-to-unix-path (path)
+  "Convert PATH into a unix-style path."
+  (if (not (eq system-type 'windows))
+      path
+    (let* (
+           (sf (replace-regexp-in-string "\\\\" "/" path))
+           (ef (replace-regexp-in-string " " "\\\\ " sf))
+           (df (replace-regexp-in-string "^\\([a-zA-Z]\\):" "/\\1" ef))
+           (cf (concat (downcase (substring df 0 2)) (substring df 2)))
+           )
+      cf
+      )
+    )
+  )
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
