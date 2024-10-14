@@ -47,7 +47,6 @@
           (const :tag "Always" always)
           (const :tag "Never" never))
   :group 'abysl-term)
-
 (defcustom abysl-term-user-exit-hooks nil
   "A list of user-defined functions to run after the command completes.
 Each function receives two arguments: exit code and command output."
@@ -137,6 +136,7 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
          (output (with-temp-buffer
                    (insert-file-contents output-file)
                    (buffer-string))))
+    (abysl-term--message-tmp-files tmp-files "debug")
     ;; Clean up all temp files by iterating through the list
     ;; (dolist (file tmp-files)
     ;;   (when (file-exists-p file)

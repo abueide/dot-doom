@@ -11,10 +11,10 @@
       doom-symbol-font (font-spec :family "Symbols Nerd Font Mono")
       doom-big-font (font-spec :family "JetBrainsMono NFM" :size 28))
 
-(setq explicit-shell-file-name "C:\Program Files\Git\bin\bash.exe")
+(setq explicit-shell-file-name "bash")
 (setq explicit-bash-args '("--login" "-i"))
 (setq shell-file-name explicit-shell-file-name)
-(add-to-list 'exec-path "C:\Program Files\Git\bin")
+
 
 ;; Package Config
 
