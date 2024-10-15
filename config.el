@@ -20,7 +20,6 @@
   (org-roam-db-autosync-mode)
   )
 
-
 (use-package! super-save
   :init
   :config
@@ -32,14 +31,59 @@
 
 (use-package! abysl-term
   :load-path "lib"
+  :custom
+  ;; Set default terminal
+  (abysl-term-terminal "wezterm")
+  ;; Set default terminal args
+  (abysl-term-terminal-args (list "--always-new-process" "--workspace" "AbyslWorkspace"))
+  ;; Set default shell
+  (abysl-term-shell "fish")
+  ;; When to hide the buffer that opens containing the command's output after it completes
+  (abysl-term-hide 'onSuccess)
+  ;; Extend the `abysl-term-args-alist` to add support for arbitrary terminal emulators.
+  ;; Please consider making a PR after testing :)
+  (abysl-term-args-alist
+   (append abysl-term-args-alist
+           ;; Flag to set the working directory.
+           ;; By default uses projectile-project-root
+           ;; or if unavailable current buffer's directory
+           ;; or if unavailable user's home directory
+           ;; The terminal name tag must match the terminal's binary name in the PATH
+           '((wezterm . ((cd . "--work-dir")
+                         ;; Subcommand to launch an executable within the terminal (if any) Starting command (if any)
+                         (start . "start")
+                         ;; Use '--' separator to separate terminal args from program args.
+                         (use-argument-separator . t))))))
   :config
   (map! :leader
         :prefix ("r" . "run")
-        :desc "Run selected text" "c" #'abysl-term-run-selected)
+        :desc "Run selected text"
+        "c" #'abysl-term-run-selected)
   (map! :leader
         :prefix ("r" . "run")
-        :desc "Run previous command" "p" #'abysl-term-run-previous)
-
+        :desc "Run previous command"
+        "p" #'abysl-term-run-previous)
+  ;; Opens your default shell in your default terminal
+  (map! :leader
+        :prefix ("o" . "open")
+        :desc "[o]pen abysl-term [s]hell"
+        "s" #'abysl-term-open-shell)
+  (map! :leader
+        :desc "Sync Doom and Restart"
+        :nv
+        "q t" (lambda ()
+                (interactive)
+                ;; Example of adding a custom exit hook to an invocation of abysl-term-run
+                ;; exit-codes contains an exit code for each command in your pipe
+                ;; Pretend there is a command called simulate-error which returns an argument as an error code
+                ;; simulate-error 0 | simulate-error 44 | simulate-error 25
+                ;; would make exit codes = (list 0 44 25) when the command completes
+                ;; cl-every ensures we only restart if there are no errors so we can see them if they happen
+                (abysl-term-run "doom sync"
+                                (lambda (exit-codes output)
+                                  (message "exit hook called")
+                                  (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+                                      (doom/restart-and-restore))))))
   (map! :leader
         :mode nix-mode
         :prefix ("c" . "colmena")
@@ -53,9 +97,8 @@
           (interactive)
           (let* ((tags (read-string "Enter tags (space or comma separated): "))
                  (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
-            (abysl-term-run (format "colmena apply --on %s --config %sflake.nix" formatted-tags (projectile-project-root))))))
+            (abysl-term-run (format "colmena apply --on %s" formatted-tags)))))
   )
-
 
 (after! exec-path-from-shell (exec-path-from-shell-initialize))
 
@@ -142,15 +185,7 @@
       "e l" #'flycheck-list-errors
       )
 
-                                        ;(map! :leader
-                                        ;      :desc "Sync Doom and Restart"
-;; :nv
-;; "q t" (lambda ()
-;;         (interactive)
-;;         (abysl-term-run "doom sync"
-;;                      nil
-;;                      (lambda () (doom/restart-and-restore))
-;;                      (lambda () (message "Doom sync failed.")))))
+
 
 
 ;; Load Profile

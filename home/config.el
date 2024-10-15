@@ -22,9 +22,6 @@
   (projectile-add-known-project "~/notes")
   )
 
-
-
-
 ;; Ensure LSP is set to use the ccls language server for C and C++
 (after! lsp-mode
   (setq lsp-completion-provider t)  ;; Optional, for better completion behavior

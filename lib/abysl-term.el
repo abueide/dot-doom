@@ -1,29 +1,81 @@
 ;;; abysl-term.el --- Terminal integration package -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; This package provides an interface for running terminal commands using either vterm or WezTerm.
-;; It offers configuration options for terminal type, shell, and behavior for hiding terminal windows.
-;;
-;; Usage examples:
-;; To use this package in your Emacs configuration, add the following to your config.el:
-;;
-;; (use-package! abysl-term
-;;   :load-path "lib" ; Adjust the path as needed
-;;   :custom
-;;   (abysl-term-terminal 'vterm) ; 'vterm' or 'wezterm'
-;;   (abysl-term-terminal-args '("start" "--always-new-process" "--")) ; Arguments for the terminal
-;;   (abysl-term-shell 'bash) ; Shell to use: 'bash', 'zsh', 'fish', etc.
-;;   (abysl-term-shell-args '("-l" "-i" "-c")) ; Shell arguments
-;;   (abysl-term-hide 'onSuccess)) ; Hide terminal window: 'onSuccess', 'always', or 'never'
+;;(use-package! abysl-term
+;; :load-path "lib"
+;; :custom
+;; ;; Set default terminal
+;; (abysl-term-terminal "wezterm")
+;; ;; Set default terminal args
+;; (abysl-term-terminal-args (list "--always-new-process" "--workspace" "AbyslWorkspace"))
+;; ;; Set default shell
+;; (abysl-term-shell "fish")
+;; ;; When to hide the buffer that opens containing the command's output after it completes
+;; (abysl-term-hide 'onSuccess)
+;; ;; Extend the `abysl-term-args-alist` to add support for arbitrary terminal emulators.
+;; ;; Please consider making a PR after testing :)
+;; (abysl-term-args-alist
+;;  (append abysl-term-args-alist
+;;          ;; Flag to set the working directory.
+;;          ;; By default uses projectile-project-root
+;;          ;; or if unavailable current buffer's directory
+;;          ;; or if unavailable user's home directory
+;;          ;; The terminal name tag must match the terminal's binary name in the PATH
+;;          '((wezterm . ((cd . "--work-dir")
+;;                        ;; Subcommand to launch an executable within the terminal (if any) Starting command (if any)
+;;                        (start . "start")
+;;                        ;; Use '--' separator to separate terminal args from program args.
+;;                        (use-argument-separator . t))))))
+;; :config
+;; (map! :leader
+;;       :prefix ("r" . "run")
+;;       :desc "Run selected text"
+;;       "c" #'abysl-term-run-selected)
+;; (map! :leader
+;;       :prefix ("r" . "run")
+;;       :desc "Run previous command"
+;;       "p" #'abysl-term-run-previous)
+;; ;; Opens your default shell in your default terminal
+;; (map! :leader
+;;       :prefix ("o" . "open")
+;;       :desc "[o]pen abysl-term [s]hell"
+;;       "s" #'abysl-term-open-shell)
+;; (map! :leader
+;;       :desc "Sync Doom and Restart"
+;;       :nv
+;;       "q t" (lambda ()
+;;               (interactive)
+;;               ;; Example of adding a custom exit hook to an invocation of abysl-term-run
+;;               ;; exit-codes contains an exit code for each command in your pipe
+;;               ;; Pretend there is a command called simulate-error which returns an argument as an error code
+;;               ;; simulate-error 0 | simulate-error 44 | simulate-error 25
+;;               ;; would make exit codes = (list 0 44 25) when the command completes
+;;               ;; cl-every ensures we only restart if there are no errors so we can see them if they happen
+;;               (abysl-term-run "doom sync"
+;;                               (lambda (exit-codes output)
+;;                                 (message "exit hook called")
+;;                                 (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+;;                                     (doom/restart-and-restore))))))
+;; (map! :leader
+;;       :mode nix-mode
+;;       :prefix ("c" . "colmena")
+;;       :desc "Colmena apply-local --sudo" "l"
+;;       (lambda ()
+;;         (interactive)
+;;         (abysl-term-run "colmena apply-local --sudo"))
 
-;; (abysl-term-run "colmena apply-local --sudo")
-;; (abysl-term-run '("colmena" "apply-local" "--sudo"))
-;; (abysl-term-run "colmena apply-local --sudo" 'wezterm '("start" "--") 'bash '("-c"))
-
+;;       :desc "Colmena apply with tags" "a"
+;;       (lambda ()
+;;         (interactive)
+;;         (let* ((tags (read-string "Enter tags (space or comma separated): "))
+;;                (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
+;;           (abysl-term-run (format "colmena apply --on %s" formatted-tags)))))
+;; )
+;;;
 ;;; Code:
 
 (defgroup abysl-term nil
-  "Run terminal commands with vterm or WezTerm."
+  "The Emacs interface for interacting with external terminals."
   :group 'tools)
 
 (defcustom abysl-term-terminal "wezterm"
@@ -31,7 +83,7 @@
   :type 'string
   :group 'abysl-term)
 
-(defcustom abysl-term-terminal-args '("start" "--always-new-process" "--")
+(defcustom abysl-term-terminal-args '("--always-new-process")
   "Arguments for the terminal."
   :type '(repeat string)
   :group 'abysl-term)
@@ -47,6 +99,29 @@
           (const :tag "Always" always)
           (const :tag "Never" never))
   :group 'abysl-term)
+
+(defcustom abysl-term-args-alist
+  '((wezterm . ((cd . "--cwd")
+                (start . "start")
+                (use-argument-separator . t)))
+    (alacritty . ((cd . "--working-directory")
+                  (use-argument-separator . nil)))
+    (git-bash . ((cd . "--cd")
+                 (use-argument-separator . nil)))
+    (mintty . ((cd . "--cwd")
+               (start . "start --")
+               (use-argument-separator . nil)))
+    (kitty . ((cd . "--directory")
+              (use-argument-separator . nil)))
+    (zellij . ((cd . "cd")
+               (use-argument-separator . nil))))
+  "User-configurable alist mapping terminals to their argument flags for different actions like 'cd and 'start."
+  :type '(alist :key-type (symbol :tag "Terminal name")
+          :value-type (alist :key-type (symbol :tag "Action")
+                             :value-type (sexp :tag "Argument flag")))
+  :group 'abysl-term)
+
+
 (defcustom abysl-term-user-exit-hooks nil
   "A list of user-defined functions to run after the command completes.
 Each function receives two arguments: exit code and command output."
@@ -57,7 +132,23 @@ Each function receives two arguments: exit code and command output."
   "The last command run by `abysl-term-run'.")
 
 ;; Function for running a command
-(defun abysl-term-run (command &optional terminal terminal-args shell current-exit-hook)
+(defun abysl-term-open-shell (&optional terminal terminal-args shell)
+  "Opens a new SHELL using TERMINAL with TERMINAL-ARGS."
+  (interactive)
+  (let*(
+        (term (or terminal abysl-term-terminal))
+        (term-args (or terminal-args abysl-term-terminal-args))
+        (sh (or shell abysl-term-shell))
+        (command (abysl-term--format-command term term-args sh (list "-li"))
+                 ))
+    (make-process
+     :name "*abysl-term-shell*"
+     :buffer "*abysl-term-shell*"
+     :command command)
+    )
+  )
+
+(defun abysl-term-run (command &optional current-exit-hook terminal terminal-args shell)
   "Run COMMAND in a terminal, with optional overrides for TERMINAL, TERMINAL-ARGS, and SHELL.
 Optionally run a CURRENT-EXIT-HOOK for this specific command."
   (interactive)
@@ -74,22 +165,22 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
          ;; Build the full command with wezterm, script file, and output handling
          (full-command
           (if (executable-find "script")
-              (append (list term) term-args (list "script" output-file "-c" script-file))
+              (abysl-term--format-command term term-args "script" (list "--flush" output-file "-c" script-file))
             ;; When the condition is false (using `tee`)
-            (append
-             (list term)
-             term-args
-             (list sh "-l" "-c"
-                   (format
-                    "stdbuf -oL -eL %s 2>&1 | tee %s"
-                    (abysl-term--convert-to-unix-path script-file)
-                    (abysl-term--convert-to-unix-path output-file)
-                    )))))
+            (abysl-term--format-command
+             term term-args sh (list "-lc")
+             (format
+              "stdbuf -oL -eL %s 2>&1 | tee %s"
+              (abysl-term--convert-to-unix-path script-file)
+              (abysl-term--convert-to-unix-path output-file)
+              ))
+            ))
          ;; Merge user-defined exit hooks with the optional current exit hook
          (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
     ;; Run the terminal process
     (abysl-term--run-terminal full-command temp-files exit-hooks)))
 ;; Run the currently selected text as a command
+;; colmena fdh
 (defun abysl-term-run-selected ()
   "Run the currently selected text as a command."
   (interactive)
@@ -108,6 +199,52 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
     (message "No previous command to run")))
 
 ;; Internal helpers
+(defun abysl-term--get-terminal-flags (term action)
+  "Retrieve terminal-specific argument flags for TERM and ACTION from `abysl-term-args-alist`. Always returns a string or nil."
+  (let ((term-entry (assoc (intern term) abysl-term-args-alist)))
+    (if term-entry
+        (let ((flag (cdr (assoc action (cdr term-entry)))))
+          (if (stringp flag)
+              flag
+            nil))  ;; Ensure only a string or nil is returned
+      (error "Unsupported terminal: %s. Please add it to `abysl-term-args-alist`.\nExample: (add-to-list 'abysl-term-args-alist '(%s . ((cd . \"--your-cd-flag\") (start . \"--your-start-flag\"))))" term term))))
+
+(defun abysl-term--use-argument-separator (term)
+  "Return a list with '--' if TERM needs a separator, or an empty list if not."
+  (let ((term-entry (assoc (intern term) abysl-term-args-alist)))
+    (if term-entry
+        (let ((separator (cdr (assoc 'use-argument-separator (cdr term-entry)))))
+          (if separator
+              '("--")
+            '()))  ;; Return an empty list if no separator is needed
+      '())))
+
+
+(defun abysl-term--format-command (term &optional term-args shell shell-args command)
+  "Prepare the command and arguments for `make-process` based on TERM, TERM-ARGS, SHELL, SHELL-ARGS, and COMMAND.
+If both SHELL and COMMAND are nil, an error is thrown."
+  ;; Error if both shell and command are nil
+  (when (and (null shell) (null command))
+    (error "Both shell and command cannot be nil"))
+
+  (let* ((dir (abysl-term--get-project-root-or-default))
+         (cd-arg (abysl-term--get-terminal-flags term 'cd))
+         (start-arg (abysl-term--get-terminal-flags term 'start))
+         (separator-arg (abysl-term--use-argument-separator term)))
+
+    ;; Construct the full command
+    (let ((formatted-command
+           (append (list term)
+                   (when start-arg (list start-arg))  ;; Add start subcommand if required
+                   (when term-args term-args)  ;; Terminal arguments before the '--'
+                   (when cd-arg (list cd-arg dir))  ;; Add the directory argument if possible
+                   separator-arg  ;; Add '--' separator if required
+                   (when shell (list shell))  ;; Add shell if provided
+                   (when (and shell shell-args) shell-args)
+                   (when command (list command)))))  ;; Add final command if provided
+      ;; Debugging individual parts of the command
+      formatted-command)))
+
 
 (defun abysl-term--run-terminal (full-command tmp-files exit-hooks)
   "Run FULL-COMMAND in the terminal, handling process lifecycle using TMP-FILES.
@@ -128,11 +265,11 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
   ;; Proceed when the process finishes
   (when (string= event "finished\n")
     (let ((sentinel-exit-code (process-exit-status proc)))  ;; Capture sentinel exit code
-      (abysl-term--default-exit-hook tmp-files)
+      (abysl-term--default-exit-hook tmp-files exit-hooks)
       (if (not (eq sentinel-exit-code 0))
           (error "[abysl-term--process-sentinel] Sentinel exit code: %d" sentinel-exit-code)))))
 
-(defun abysl-term--default-exit-hook (tmp-files)
+(defun abysl-term--default-exit-hook (tmp-files exit-hooks)
   "Default exit hook to process the TMP-FILES and call user-defined exit hooks."
   (let* ((output-file (nth 1 tmp-files))
          (exit-code-file (nth 2 tmp-files))
@@ -151,7 +288,7 @@ Runs EXIT-HOOKS after process completion and processes output and exit code from
     ;; Handle output based on exit-codes
     (abysl-term--handle-output exit-codes output)
     ;; Call user-defined hooks
-    (dolist (hook abysl-term-user-exit-hooks)
+    (dolist (hook exit-hooks)
       (funcall hook exit-codes output))))
 
 
@@ -269,5 +406,21 @@ Warns if any file doesn't exist."
       )
     )
   )
+
+(defun abysl-term--get-project-root-or-default ()
+  "Return the root of the current Projectile project, or fallback to the parent directory of the current buffer.
+If Projectile is not available, or the current workspace is invalid, return the parent directory of the current buffer.
+If there is no current buffer or the buffer is not visiting a file, return the home directory."
+  (let* ((project-root (if (and (fboundp 'projectile-project-root)
+                                (projectile-project-p))
+                           (projectile-project-root)
+                         nil))
+         (buffer-file-dir (if (buffer-file-name)
+                              (file-name-directory (buffer-file-name))
+                            nil)))
+    (or project-root
+        buffer-file-dir
+        (expand-file-name "~"))))
+
 (provide 'abysl-term)
 ;;; abysl-term.el ends here
