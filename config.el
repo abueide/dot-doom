@@ -77,47 +77,39 @@
 (after! exec-path-from-shell (exec-path-from-shell-initialize))
 
 ;; Custom Functions
-(defun projectile-insert-org-link
-    ()
-  "Insert org link with projectile-find-file"
+(defun projectile-insert-link (format-str)
+  "Helper function to insert a link using projectile-find-file.
+FORMAT-STR is used to format the link (e.g., for Org or Markdown).
+If text is selected, it is used as the initial input for the prompt
+with the current buffer's extension appended."
   (interactive)
-  (let (
-        (file (projectile-completing-read
-               "Insert Link: "
-               (projectile-current-project-files)
-               )
-              )
-        )
+  (let* ((selected-text (if (use-region-p)
+                            (concat (buffer-substring-no-properties (region-beginning) (region-end))
+                                    (file-name-extension (buffer-file-name) t)) ;; Add the extension
+                          nil))
+         (file (projectile-completing-read "Insert Link: "
+                                           (projectile-current-project-files)
+                                           :initial-input selected-text))
+         (file-display (file-name-sans-extension (file-name-nondirectory file)))) ;; Display without extension
     (when file
-      (insert (format "[[file:%s][%s]]"
-                      file
-                      (file-name-sans-extension (file-name-nondirectory file))
-                      )
-              )
-      )
-    )
-  )
+      (insert (format format-str file file-display)))))
 
-(defun projectile-insert-md-link
-    ()
-  "Insert org link with projectile-find-file"
+(defun projectile-insert-org-link ()
+  "Insert an org link with projectile-find-file.
+If text is selected, use it as the initial input with the current buffer's extension appended,
+and format the link as [[file:name.ext][name]]."
   (interactive)
-  (let (
-        (file (projectile-completing-read
-               "Insert Link: "
-               (projectile-current-project-files)
-               )
-              )
-        )
-    (when file
-      (insert (format "[%s](%s)"
-                      (file-name-sans-extension (file-name-nondirectory file))
-                      file
-                      )
-              )
-      )
-    )
-  )
+  (projectile-insert-link "[[file:%s][%s]]"))
+
+(defun projectile-insert-md-link ()
+  "Insert a markdown link with projectile-find-file.
+If text is selected, use it as the initial input with the current buffer's extension appended,
+and format the link as [name.ext](name)."
+  (interactive)
+  (projectile-insert-link "[%s](%s)"))
+
+
+
 
 ;; Keymaps
 
