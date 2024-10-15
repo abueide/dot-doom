@@ -81,7 +81,8 @@
   "Helper function to insert a link using projectile-find-file.
 FORMAT-STR is used to format the link (e.g., for Org or Markdown).
 If text is selected, it is used as the initial input for the prompt
-with the current buffer's extension appended."
+with the current buffer's extension appended. The inserted link will replace
+the selected text if any."
   (interactive)
   (let* ((selected-text (if (use-region-p)
                             (concat (buffer-substring-no-properties (region-beginning) (region-end))
@@ -92,19 +93,22 @@ with the current buffer's extension appended."
                                            :initial-input selected-text))
          (file-display (file-name-sans-extension (file-name-nondirectory file)))) ;; Display without extension
     (when file
+      ;; If text is selected, replace it with the link
+      (when (use-region-p)
+        (delete-region (region-beginning) (region-end)))
       (insert (format format-str file file-display)))))
 
 (defun projectile-insert-org-link ()
   "Insert an org link with projectile-find-file.
 If text is selected, use it as the initial input with the current buffer's extension appended,
-and format the link as [[file:name.ext][name]]."
+and format the link as [[file:name.ext][name]]. The inserted link replaces the selected text."
   (interactive)
   (projectile-insert-link "[[file:%s][%s]]"))
 
 (defun projectile-insert-md-link ()
   "Insert a markdown link with projectile-find-file.
 If text is selected, use it as the initial input with the current buffer's extension appended,
-and format the link as [name.ext](name)."
+and format the link as [name.ext](name). The inserted link replaces the selected text."
   (interactive)
   (projectile-insert-link "[%s](%s)"))
 
