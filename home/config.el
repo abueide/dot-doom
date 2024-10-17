@@ -40,19 +40,3 @@
 ;; Functions
 
 ;; Keymaps
-
-(map! :localleader
-      :mode nix-mode
-      (:prefix ("c" . "Colmena/Configuration")
-       :desc "Colmena apply-local --sudo"
-       "l" (lambda ()
-             (interactive)
-
-             (let ((command (format "colmena apply-local --sudo --config %sflake.nix" (projectile-project-root))))
-               (run-command command)))
-       :desc "Colmena apply --on <tag>"
-       "t" (lambda ()
-             (interactive)
-             (let* ((tag (read-string "Enter tag to apply on: "))
-                    (command (format "colmena apply --on %s --config %sflake.nix" tag (projectile-project-root))))
-               (run-command command)))))

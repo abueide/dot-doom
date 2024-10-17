@@ -11,6 +11,11 @@
       doom-symbol-font (font-spec :family "Symbols Nerd Font Mono")
       doom-big-font (font-spec :family "JetBrainsMono NFM" :size 28))
 
+(setq explicit-shell-file-name "bash")
+(setq explicit-bash-args '("--login" "-i"))
+(setq shell-file-name explicit-shell-file-name)
+
+
 ;; Package Config
 
 (setq org-directory "~/work/notes")
