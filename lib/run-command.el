@@ -1,4 +1,4 @@
-;;; run-command.el --- Execute commands in term buffer -*- lexical-binding: t -*-
+;;; abysl-interminal.el --- Execute commands in term buffer -*- lexical-binding: t -*-
 ;;; Commentary:
 ;;; This package allows you to run a command asynchronously with term.
 ;;; It has options to show/hide the output console depending on the command's exit code.
@@ -9,47 +9,47 @@
 (require 'cl-lib)
 (require 'ert)  ; Emacs Lisp Testing Framework
 
-(defvar run-command-debug t "Enable debug for run-command.")
-(defvar run-command-buffer-policy "onSuccess"
+(defvar abysl-interminal-debug t "Enable debug for abysl-interminal.")
+(defvar abysl-interminal-buffer-policy "onSuccess"
   "Output buffer policy: always, never, onSuccess, onFailure.")
-(defvar run-command-shell "bash"
+(defvar abysl-interminal-shell "bash"
   "Default shell to use for running commands. Can be set to bash, fish, or zsh.")
 
-(defun run-command--log (message &rest args)
-  "Log MESSAGE with ARGS if `run-command-debug` is enabled."
-  (when run-command-debug
-    (apply #'message (concat "[run-command]: " message) args)))
+(defun abysl-interminal--log (message &rest args)
+  "Log MESSAGE with ARGS if `abysl-interminal-debug` is enabled."
+  (when abysl-interminal-debug
+    (apply #'message (concat "[abysl-interminal]: " message) args)))
 
-(defun run-command (command &optional shell on-success on-failure)
+(defun abysl-interminal (command &optional shell on-success on-failure)
   "Run COMMAND in a term buffer using SHELL"
-  (let ((shell-to-use (or shell run-command-shell)))
-    (run-command--log "Running: %s with shell: %s" command shell-to-use)
-    (let* ((buffer-name "*run-command-output*")
+  (let ((shell-to-use (or shell abysl-interminal-shell)))
+    (abysl-interminal--log "Running: %s with shell: %s" command shell-to-use)
+    (let* ((buffer-name "*abysl-interminal-output*")
            (buffer (get-buffer-create buffer-name)))
-      (run-command--log "Creating term buffer: %s" buffer-name)
+      (abysl-interminal--log "Creating term buffer: %s" buffer-name)
       (with-current-buffer buffer
         (term-mode)
-        (term-exec buffer "run-command" shell-to-use nil (list "-l" "-i" "-c" command)))
+        (term-exec buffer "abysl-interminal" shell-to-use nil (list "-l" "-i" "-c" command)))
       (display-buffer-at-bottom buffer '((window-height . 0.25)))
       (select-window (get-buffer-window buffer))
       (evil-normal-state)
       (set-process-sentinel (get-buffer-process buffer)
                             (lambda (proc _event)
                               (let ((exit-code (process-exit-status proc)))
-                                (run-command--log "Exit code: %d" exit-code)
+                                (abysl-interminal--log "Exit code: %d" exit-code)
                                 (cond
-                                 ((string= run-command-buffer-policy "always")
-                                  (run-command--log "Policy: always keep buffer."))
-                                 ((string= run-command-buffer-policy "never")
-                                  (run-command--log "Policy: never keep buffer.")
+                                 ((string= abysl-interminal-buffer-policy "always")
+                                  (abysl-interminal--log "Policy: always keep buffer."))
+                                 ((string= abysl-interminal-buffer-policy "never")
+                                  (abysl-interminal--log "Policy: never keep buffer.")
                                   (delete-window (get-buffer-window buffer)))
-                                 ((and (string= run-command-buffer-policy "onSuccess")
+                                 ((and (string= abysl-interminal-buffer-policy "onSuccess")
                                        (= exit-code 0))
-                                  (run-command--log "Policy: onSuccess, closing buffer.")
+                                  (abysl-interminal--log "Policy: onSuccess, closing buffer.")
                                   (delete-window (get-buffer-window buffer)))
-                                 ((and (string= run-command-buffer-policy "onFailure")
+                                 ((and (string= abysl-interminal-buffer-policy "onFailure")
                                        (/= exit-code 0))
-                                  (run-command--log "Policy: onFailure, closing buffer.")
+                                  (abysl-interminal--log "Policy: onFailure, closing buffer.")
                                   (delete-window (get-buffer-window buffer))))
                                 ;; Execute hooks based on exit code
                                 (if (= exit-code 0)
@@ -60,55 +60,54 @@
 (defun run-selected-command (&optional shell)
   "Run the currently selected text in SHELL."
   (interactive)
-  (run-command--log "Running selected command.")
+  (abysl-interminal--log "Running selected command.")
   (if (use-region-p)
       (let ((command (buffer-substring-no-properties (region-beginning) (region-end))))
-        (run-command--log "Selected command: %s" command)
-        (run-command command shell))
-    (run-command--log "No region selected.")))
+        (abysl-interminal--log "Selected command: %s" command)
+        (abysl-interminal command shell))
+    (abysl-interminal--log "No region selected.")))
 
-;;; Unit tests for run-command functions using ERT
+;;; Unit tests for abysl-interminal functions using ERT
 
-(ert-deftest run-command-test-buffer-policy-always ()
+(ert-deftest abysl-interminal-test-buffer-policy-always ()
   "Test buffer policy 'always'."
-  (let ((run-command-buffer-policy "always"))
-    (should (equal run-command-buffer-policy "always"))))
+  (let ((abysl-interminal-buffer-policy "always"))
+    (should (equal abysl-interminal-buffer-policy "always"))))
 
-(ert-deftest run-command-test-buffer-policy-never ()
+(ert-deftest abysl-interminal-test-buffer-policy-never ()
   "Test buffer policy 'never'."
-  (let ((run-command-buffer-policy "never"))
-    (should (equal run-command-buffer-policy "never"))))
+  (let ((abysl-interminal-buffer-policy "never"))
+    (should (equal abysl-interminal-buffer-policy "never"))))
 
-(ert-deftest run-command-test-buffer-policy-onSuccess ()
+(ert-deftest abysl-interminal-test-buffer-policy-onSuccess ()
   "Test buffer policy 'onSuccess'."
-  (let ((run-command-buffer-policy "onSuccess"))
-    (should (equal run-command-buffer-policy "onSuccess"))))
+  (let ((abysl-interminal-buffer-policy "onSuccess"))
+    (should (equal abysl-interminal-buffer-policy "onSuccess"))))
 
-(ert-deftest run-command-test-buffer-policy-onFailure ()
+(ert-deftest abysl-interminal-test-buffer-policy-onFailure ()
   "Test buffer policy 'onFailure'."
-  (let ((run-command-buffer-policy "onFailure"))
-    (should (equal run-command-buffer-policy "onFailure"))))
+  (let ((abysl-interminal-buffer-policy "onFailure"))
+    (should (equal abysl-interminal-buffer-policy "onFailure"))))
 
-(ert-deftest run-command-test-exit-code-and-output ()
+(ert-deftest abysl-interminal-test-exit-code-and-output ()
   "Test the exit code and output of specific commands."
-  (let ((buffer-name "*run-command-output*")
-        (run-command-buffer-policy "always"))
+  (let ((buffer-name "*abysl-interminal-output*")
+        (abysl-interminal-buffer-policy "always"))
     ;; Success case: "echo test" with bash
-    (run-command "echo test" "bash")
+    (abysl-interminal "echo test" "bash")
     (with-current-buffer buffer-name
       (goto-char (point-max))
       (should (search-backward "test" nil t))
       (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))
     ;; Success case: "echo test" with fish
-    (run-command "echo test" "fish")
+    (abysl-interminal "echo test" "fish")
     (with-current-buffer buffer-name
       (goto-char (point-max))
       (should (search-backward "test" nil t))
       (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))
     ;; Success case: "echo test" with zsh
-    (run-command "echo test" "zsh")
+    (abysl-interminal "echo test" "zsh")
     (with-current-buffer buffer-name
       (goto-char (point-max))
       (should (search-backward "test" nil t))
-      (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))));;; run-command.el ends here;;
-
+      (should (= (process-exit-status (get-buffer-process buffer-name)) 0)))));;; abysl-interminal.el ends here;;
