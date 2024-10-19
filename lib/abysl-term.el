@@ -198,6 +198,35 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
         (apply 'abysl-term-run abysl-term--last-command))
     (message "No previous command to run")))
 
+(defun abysl-term-command (command &rest args)
+  "Create a command structure for abysl-term.
+COMMAND can either be a terminal command (string) or an Emacs function (symbol).
+ARGS is a plist supporting :onSuccess, :onFailure, :onExit hooks,
+as well as :terminal, :shell, :terminal-args, and :shell-args for environment customization."
+  (let ((on-success (plist-get args :onSuccess))
+        (on-failure (plist-get args :onFailure))
+        (on-exit (plist-get args :onExit))
+        (terminal (plist-get args :terminal))
+        (terminal-args (plist-get args :terminal-args))
+        (shell (plist-get args :shell))
+        (shell-args (plist-get args :shell-args)))
+    (lambda ()
+      ;; Handle terminal commands (string) and Emacs functions (symbol)
+      (if (stringp command)
+          ;; Run terminal command, passing in overrides if provided, and exit hook as last parameter
+          (abysl-term-run command terminal terminal-args shell shell-args
+                          (lambda (exit-codes output)
+                            (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+                                (abysl-term--run-hook on-success exit-codes output)
+                              (abysl-term--run-hook on-failure exit-codes output))
+                            (abysl-term--run-hook on-exit exit-codes output)))
+        ;; It's an Emacs function, so we call it directly
+        (if (functionp command)
+            (funcall command)
+          (error "Unsupported command type: %s" command))))))
+
+
+
 ;; Internal helpers
 (defun abysl-term--get-terminal-flags (term action)
   "Retrieve terminal-specific argument flags for TERM and ACTION from `abysl-term-args-alist`. Always returns a string or nil."
