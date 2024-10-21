@@ -1,7 +1,7 @@
 ;; Load libs
 (add-to-list 'load-path (expand-file-name "lib" doom-user-dir))
 ;; Startup
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
+                                        ;(add-to-list 'default-frame-alist '(fullscreen . maximized))
 (setq shell-file-name (executable-find "bash"))
 
 ;; User Config
@@ -13,12 +13,12 @@
 
 ;; Package Config
 ;;
-;;
+
 (use-package! org-roam
   :after org
   :config
-  (org-roam-db-autosync-mode)
-  )
+  (org-roam-db-autosync-mode))
+
 
 (use-package! super-save
   :init
@@ -26,8 +26,30 @@
   (super-save-mode +1)
   (setq super-save-auto-save-when-idle t)
   (setq auto-save-default nil)
-  (add-to-list 'super-save-hook-triggers 'find-file-hook)
-  )
+  (add-to-list 'super-save-hook-triggers 'find-file-hook))
+
+
+(use-package! parinfer-rust-mode
+  :hook ((emacs-lisp-mode
+          clojure-mode
+          scheme-mode
+          lisp-mode
+          racket-mode
+          fennel-mode
+          hy-mode) . parinfer-rust-mode)
+  :init
+  :config
+  (map! :map parinfer-rust-mode-map
+        :localleader
+        "p" #'parinfer-rust-switch-mode
+        "P" #'parinfer-rust-toggle-disable))
+
+(use-package! cygwin-mount
+  :custom
+  (cygwin-mount-cygwin-bin-directory "c:/Program Files/Git/usr/bin")
+  :config
+  (cygwin-mount-activate))
+
 
 (use-package! abysl-term
   :load-path "lib"
@@ -53,11 +75,14 @@
         :nv
         "q t" (lambda ()
                 (interactive)
-                (abysl-term-run "doom sync"
-                                (lambda (exit-codes output)
-                                  (message "exit hook called")
-                                  (if (cl-every (lambda (x) (eq x 0)) exit-codes)
-                                      (doom/restart-and-restore))))))
+                (let ((cmd (if (eq system-type 'windows-nt)
+                               "c:/Users/FAFI3L8/.config/emacs/bin/doom sync"
+                             "doom sync")))
+
+                  (abysl-term-run cmd
+                                  (lambda (exit-codes output)
+                                    (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+                                        (doom/restart-and-restore)))))))
   (map! :leader
         :mode nix-mode
         :prefix ("c" . "colmena")
@@ -71,10 +96,7 @@
           (interactive)
           (let* ((tags (read-string "Enter tags (space or comma separated): "))
                  (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
-            (abysl-term-run (format "colmena apply --on %s" formatted-tags)))))
-  )
-
-(after! exec-path-from-shell (exec-path-from-shell-initialize))
+            (abysl-term-run (format "colmena apply --on %s" formatted-tags))))))
 
 ;; Custom Functions
 (defun projectile-insert-link (format-str)
@@ -122,38 +144,38 @@ and format the link as [name.ext](name). The inserted link replaces the selected
   (key-chord-mode t)
   :config
   (key-chord-define evil-insert-state-map "fd" 'evil-normal-state)
-  (key-chord-define evil-insert-state-map "FD" 'evil-normal-state)
-  )
+  (key-chord-define evil-insert-state-map "FD" 'evil-normal-state))
+
 
 (map! :map 'evil-normal-state-map
       :leader
       "j l" 'evil-join
-      "p v" '+treemacs/toggle
-      )
+      "p v" '+treemacs/toggle)
+
 
 (map!
  :mode org-mode
  :localleader
- "l p" 'projectile-insert-org-link
- )
+ "l p" 'projectile-insert-org-link)
+
 
 (map!
  :mode markdown-mode
  :localleader
- "l p" 'projectile-insert-md-link
- )
+ "l p" 'projectile-insert-md-link)
+
 
 (map! :map 'evil-normal-state-map
       "J" 'centaur-tabs-backward
-      "K" 'centaur-tabs-forward
-      )
+      "K" 'centaur-tabs-forward)
+
 
 (map! :leader
       :desc "List Flycheck errors"
       :mode flycheck-mode
       :nv
-      "e l" #'flycheck-list-errors
-      )
+      "e l" #'flycheck-list-errors)
+
 
 
 

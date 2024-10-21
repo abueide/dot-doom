@@ -4,8 +4,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(safe-local-variable-values
-   '((org-roam-directory . "~/work/docs/roam")
-     (checkdoc-package-keywords-flag))))
+   '((org-roam-directory . "~/work/notes/roam")
+     (org-roam-directory . "~/work/docs/roam"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

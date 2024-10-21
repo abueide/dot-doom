@@ -45,7 +45,7 @@
                                         ; automated prettiness
        ;; multiple-cursors  ; editing in many places at once
        ;; objed             ; text object editing for the innocent, conflict with parinfer
-       ;; parinfer          ; turn lisp into python, sort of, conflict with copilot/objed/smartparens
+       parinfer          ; turn lisp into python, sort of, conflict with copilot/objed/smartparens
        ;;rotate-text       ; cycle region at point between text candidates
        snippets   ; my elves. They type so I don't have to
        word-wrap         ; soft wrapping with language-aware indent
@@ -133,7 +133,7 @@
                                         ; writing papers in Emacs has never been so fun
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
-       ;;(lua +lsp +tree-sitter)
+       (lua +lsp +tree-sitter)
                                         ; one-based indices? one-based indices
        (markdown +grip)
                                         ; writing docs for people to ignore
@@ -185,4 +185,4 @@
 
        :config
        ;;literate
-       (default +bindings +smartparens))
+       (default +bindings))

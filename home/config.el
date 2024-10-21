@@ -1,8 +1,8 @@
 ;; User Config
 
 (setq user-full-name "Andrea Bueide"
-      user-mail-address "andrea@abueide.com"
-      )
+      user-mail-address "andrea@abueide.com")
+
 
 (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 18)
       doom-variable-pitch-font (font-spec :family "DejaVu Sans")
@@ -19,15 +19,15 @@
   (setq projectile-project-search-path '("~/code"))
   :config
   (projectile-add-known-project "~/.config/doom")
-  (projectile-add-known-project "~/notes")
-  )
+  (projectile-add-known-project "~/notes"))
+
 
 ;; Ensure LSP is set to use the ccls language server for C and C++
 (after! lsp-mode
   (setq lsp-completion-provider t)  ;; Optional, for better completion behavior
-  (setq lsp-enabled-clients '(ccls))
-  ;; (setq lsp-clients-ccls-executable "ccls")  ;; Uncomment this line if you need to manually specify the ccls binary
-  )
+  (setq lsp-enabled-clients '(ccls)))
+;; (setq lsp-clients-ccls-executable "ccls")  ;; Uncomment this line if you need to manually specify the ccls binary
+
 
 ;; Enable LSP and PlatformIO for C, C++, and Arduino files
 (after! platformio-mode
