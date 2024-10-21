@@ -10,9 +10,15 @@
 (setq display-line-numbers-type 'relative)
 (setq warning-minimum-level :error)
 (setq org-return-follows-link t)
+(setq backward-delete-char-untabify-method 'untabify)
 
 ;; Package Config
-;;
+
+(use-package! lsp-mode
+  :custom
+  (lsp-completion-provider :capf)
+  (lsp-enable-completion-at-point t)
+  (lsp-completion-enable t))
 
 (use-package! org-roam
   :after org
@@ -21,11 +27,11 @@
 
 
 (use-package! super-save
-  :init
+  :custom
+  (super-save-auto-save-when-idle t)
+  (auto-save-default nil)
   :config
   (super-save-mode +1)
-  (setq super-save-auto-save-when-idle t)
-  (setq auto-save-default nil)
   (add-to-list 'super-save-hook-triggers 'find-file-hook))
 
 
@@ -43,13 +49,6 @@
         :localleader
         "p" #'parinfer-rust-switch-mode
         "P" #'parinfer-rust-toggle-disable))
-
-(use-package! cygwin-mount
-  :custom
-  (cygwin-mount-cygwin-bin-directory "c:/Program Files/Git/usr/bin")
-  :config
-  (cygwin-mount-activate))
-
 
 (use-package! abysl-term
   :load-path "lib"
@@ -76,13 +75,13 @@
         "q t" (lambda ()
                 (interactive)
                 (let ((cmd (if (eq system-type 'windows-nt)
-                               "c:/Users/FAFI3L8/.config/emacs/bin/doom sync"
-                             "doom sync")))
-
-                  (abysl-term-run cmd
-                                  (lambda (exit-codes output)
-                                    (if (cl-every (lambda (x) (eq x 0)) exit-codes)
-                                        (doom/restart-and-restore)))))))
+                             "c:/Users/FAFI3L8/.config/emacs/bin/doom sync"
+                             "doom sync"
+                             
+                             (abysl-term-run cmd
+                                             (lambda (exit-codes output)
+                                               (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+                                                 (doom/restart-and-restore))))))))))
   (map! :leader
         :mode nix-mode
         :prefix ("c" . "colmena")
@@ -90,49 +89,49 @@
         (lambda ()
           (interactive)
           (abysl-term-run "colmena apply-local --sudo"))
-
+        
         :desc "Colmena apply with tags" "a"
         (lambda ()
           (interactive)
           (let* ((tags (read-string "Enter tags (space or comma separated): "))
-                 (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
-            (abysl-term-run (format "colmena apply --on %s" formatted-tags))))))
+                 (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ","))
+                 (abysl-term-run (format "colmena apply --on %s" formatted-tags)))))))
 
 ;; Custom Functions
 (defun projectile-insert-link (format-str)
-  "Helper function to insert a link using projectile-find-file.
+       "Helper function to insert a link using projectile-find-file.
 FORMAT-STR is used to format the link (e.g., for Org or Markdown).
 If text is selected, it is used as the initial input for the prompt
 with the current buffer's extension appended. The inserted link will replace
 the selected text if any."
-  (interactive)
-  (let* ((selected-text (if (use-region-p)
-                            (concat (buffer-substring-no-properties (region-beginning) (region-end))
-                                    (file-name-extension (buffer-file-name) t)) ;; Add the extension
-                          nil))
-         (file (projectile-completing-read "Insert Link: "
-                                           (projectile-current-project-files)
-                                           :initial-input selected-text))
-         (file-display (file-name-sans-extension (file-name-nondirectory file)))) ;; Display without extension
-    (when file
-      ;; If text is selected, replace it with the link
-      (when (use-region-p)
-        (delete-region (region-beginning) (region-end)))
-      (insert (format format-str file file-display)))))
+       (interactive)
+       (let* ((selected-text (if (use-region-p)
+                               (concat (buffer-substring-no-properties (region-beginning) (region-end))
+                                       (file-name-extension (buffer-file-name) t)) ;; Add the extension
+                               nil
+                               (file (projectile-completing-read "Insert Link: "
+                                                                 (projectile-current-project-files)
+                                                                 :initial-input selected-text))
+                               (file-display (file-name-sans-extension (file-name-nondirectory file)))))) ;; Display without extension
+         (when file
+           ;; If text is selected, replace it with the link
+           (when (use-region-p)
+                 (delete-region (region-beginning) (region-end)))
+           (insert (format format-str file file-display)))))
 
 (defun projectile-insert-org-link ()
-  "Insert an org link with projectile-find-file.
+       "Insert an org link with projectile-find-file.
 If text is selected, use it as the initial input with the current buffer's extension appended,
 and format the link as [[file:name.ext][name]]. The inserted link replaces the selected text."
-  (interactive)
-  (projectile-insert-link "[[file:%s][%s]]"))
+       (interactive)
+       (projectile-insert-link "[[file:%s][%s]]"))
 
 (defun projectile-insert-md-link ()
-  "Insert a markdown link with projectile-find-file.
+       "Insert a markdown link with projectile-find-file.
 If text is selected, use it as the initial input with the current buffer's extension appended,
 and format the link as [name.ext](name). The inserted link replaces the selected text."
-  (interactive)
-  (projectile-insert-link "[%s](%s)"))
+       (interactive)
+       (projectile-insert-link "[%s](%s)"))
 
 
 
@@ -176,14 +175,10 @@ and format the link as [name.ext](name). The inserted link replaces the selected
       :nv
       "e l" #'flycheck-list-errors)
 
-
-
-
-
 ;; Load Profile
 
 (let ((profile (getenv "EMACS_PROFILE")))
-  (cond
-   ((string= profile "work") (load! "work/config.el"))
-   ((string= profile "home") (load! "home/config.el"))
-   (t (load! "home/config.el")))) ;; default profile
+     (cond
+      ((string= profile "work") (load! "work/config.el"))
+      ((string= profile "home") (load! "home/config.el"))
+      (t (load! "home/config.el")))) ;; default profile

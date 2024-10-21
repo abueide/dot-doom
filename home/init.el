@@ -45,7 +45,7 @@
                                         ; automated prettiness
        ;; multiple-cursors  ; editing in many places at once
        ;; objed             ; text object editing for the innocent, conflict with parinfer
-       ;; parinfer          ; turn lisp into python, sort of, conflict with copilot/objed/smartparens
+       parinfer          ; turn lisp into python, sort of, conflict with copilot/objed/smartparens
        ;;rotate-text       ; cycle region at point between text candidates
        snippets   ; my elves. They type so I don't have to
        word-wrap         ; soft wrapping with language-aware indent
@@ -153,7 +153,7 @@
        ;;rest              ; Emacs as a REST client
        ;;rst               ; ReST in peace
        ;;(ruby +rails)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
-       ;;(rust +lsp +tree-sitter)
+       (rust +lsp +tree-sitter)
                                         ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
        scala             ; java, but good
        (scheme +guile)

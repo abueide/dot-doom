@@ -9,6 +9,9 @@
 (package! platformio-mode)
 (package! ccls)
 (package! arduino-mode)
+(package! gleam-ts-mode)
+(package! gptel)
+(package! parinfer-rust-mode)
 
 ;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
 ;; (package! some-package)

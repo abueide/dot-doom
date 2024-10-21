@@ -93,6 +93,11 @@
   :type 'string
   :group 'abysl-term)
 
+(defcustom abysl-term-shell-args '("-lc")
+  "Arguments for the terminal."
+  :type '(repeat string)
+  :group 'abysl-term)
+
 (defcustom abysl-term-hide 'onSuccess
   "Hide terminal window: 'onSuccess', 'always', or 'never'."
   :type '(choice (const :tag "On Success" onSuccess)
@@ -139,8 +144,7 @@ Each function receives two arguments: exit code and command output."
         (term (or terminal abysl-term-terminal))
         (term-args (or terminal-args abysl-term-terminal-args))
         (sh (or shell abysl-term-shell))
-        (command (abysl-term--format-command term term-args sh (list "-li"))
-                 ))
+        (command (abysl-term--format-command term term-args sh (list "-li"))))
     (make-process
      :name "*abysl-term-shell*"
      :buffer "*abysl-term-shell*"
@@ -148,27 +152,33 @@ Each function receives two arguments: exit code and command output."
     )
   )
 
-(defun abysl-term-run (command &optional current-exit-hook terminal terminal-args shell)
+(defun abysl-term-run (command &rest args)
   "Run COMMAND in a terminal, with optional overrides for TERMINAL, TERMINAL-ARGS, and SHELL.
 Optionally run a CURRENT-EXIT-HOOK for this specific command."
   (interactive)
-  (setq abysl-term--last-command (list command terminal terminal-args shell current-exit-hook))
-  (let* ((term (or terminal abysl-term-terminal))
-         (term-args (or terminal-args abysl-term-terminal-args))
-         (sh (or shell abysl-term-shell))
-         ;; Flatten the full command into a single string
-         (command-str (abysl-term--get-command-str command))
+  (setq abysl-term--last-command (cons command args))
+  (let* (
+         (exit-hook (lambda (exit-codes output)
+                      (abysl-term--generate-exit-hook
+                       exit-codes
+                       output
+                       (plist-get args :onSuccess)
+                       (plist-get args :onFailure)
+                       (plist-get args :onExit))))
+         (term (or (plist-get args :terminal) abysl-term-terminal))
+         (term-args (or (plist-get args :terminal-args) abysl-term-terminal-args))
+         (sh (or (plist-get args :shell) abysl-term-shell))
+         (sh-args (or (plist-get args :shell-args) abysl-term-shell-args))
          ;; Generate temp script file, output file, and exit code file
-         (temp-files (abysl-term--generate-command sh command-str))
+         (temp-files (abysl-term--generate-command sh (abysl-term--get-command-str command)))
          (script-file (nth 0 temp-files))
          (output-file (nth 1 temp-files))
          ;; Build the full command with wezterm, script file, and output handling
          (full-command
           (if (executable-find "script")
               (abysl-term--format-command term term-args "script" (list "--flush" output-file "-c" script-file))
-            ;; When the condition is false (using `tee`)
             (abysl-term--format-command
-             term term-args sh (list "-lc")
+             term term-args sh sh-args
              (format
               "stdbuf -oL -eL %s 2>&1 | tee %s"
               (abysl-term--convert-to-unix-path script-file)
@@ -176,7 +186,7 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
               ))
             ))
          ;; Merge user-defined exit hooks with the optional current exit hook
-         (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks current-exit-hook)))
+         (exit-hooks (abysl-term--merge-exit-hooks abysl-term-user-exit-hooks exit-hook)))
     ;; Run the terminal process
     (abysl-term--run-terminal full-command temp-files exit-hooks)))
 ;; Run the currently selected text as a command
@@ -219,6 +229,29 @@ Optionally run a CURRENT-EXIT-HOOK for this specific command."
             '()))  ;; Return an empty list if no separator is needed
       '())))
 
+(defun abysl-term--call-hook-with-args (hook exit-codes output)
+  "Call HOOK with or without EXIT-CODES and OUTPUT based on its arguments."
+  (when hook
+    (let ((args (condition-case nil
+                    (help-function-arglist hook)
+                  (error nil))))  ;; Handle the case when args are not available
+      (if (and (listp args)
+               (equal (nth 0 args) 'exit-codes)
+               (equal (nth 1 args) 'output))
+          (funcall hook exit-codes output)
+        (funcall hook)))))
+
+
+(defun abysl-term--generate-exit-hook (exit-codes output on-success on-failure on-exit)
+  "Generate a single exit hook from ON-SUCCESS, ON-FAILURE, and ON-EXIT.
+This combined hook will decide which hook to run based on the EXIT-CODES and OUTPUT.
+It supports functions with and without parameters."
+  ;; Success hook: when all exit codes are 0
+  (if (cl-every (lambda (x) (eq x 0)) exit-codes)
+      (abysl-term--call-hook-with-args on-success exit-codes output)
+    (abysl-term--call-hook-with-args on-failure exit-codes output))
+  ;; Always call the exit hook
+  (abysl-term--call-hook-with-args on-exit exit-codes output))
 
 (defun abysl-term--format-command (term &optional term-args shell shell-args command)
   "Prepare the command and arguments for `make-process` based on TERM, TERM-ARGS, SHELL, SHELL-ARGS, and COMMAND.
@@ -331,7 +364,7 @@ If both are nil, return an empty list to ensure safe iteration."
     hooks))
 
 (defun abysl-term--generate-command (shell command-str)
-  "Generate temporary files for the command, output, and exit code, and write the command to a temporary script file."
+  "Generate temporary SCRIPT-FILE OUTPUT-FILE and EXIT-CODE-FILE from SHELL and COMMAND-STR."
   (let* ((full-shell (abysl-term--find-shell-path shell))  ;; Get full shell path
          (script-file (make-temp-file "command-"))
          (output-file (make-temp-file "command-output-"))
@@ -353,12 +386,13 @@ If both are nil, return an empty list to ensure safe iteration."
 
 (defun abysl-term--find-shell-path (shell)
   "Find the full path of the SHELL if it's just a shell name, otherwise return the shell."
-  (if (eq system-type 'windows-nt)
-      (concat "/bin/" shell)
-    (if (file-name-absolute-p shell)
-        shell  ;; If shell is already an absolute path, return it
+  (if (file-name-absolute-p shell)
+      shell  ;; If shell is already an absolute path, return it
+    (if (eq system-type 'windows-nt)
+        (concat "/bin/" shell)
       (or (executable-find shell)  ;; Look up shell in PATH
-          (error "Shell '%s' not found in PATH" shell)))
+          (error "Shell '%s' not found in PATH" shell))
+      )
     )
   )
 
