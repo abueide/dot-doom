@@ -7,6 +7,7 @@
 (package! org-super-agenda)
 (package! exec-path-from-shell)
 (package! org-projectile)
+(package! lsp-ui)
 
 
 (let ((profile (getenv "EMACS_PROFILE")))

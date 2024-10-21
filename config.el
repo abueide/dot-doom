@@ -10,24 +10,30 @@
 (setq display-line-numbers-type 'relative)
 (setq warning-minimum-level :error)
 (setq org-return-follows-link t)
+(setq backward-delete-char-untabify-method 'untabify)
 
 ;; Package Config
-;;
-;;
+
+(use-package! lsp-mode
+  :custom
+  (lsp-completion-provider :capf)
+  (lsp-enable-completion-at-point t)
+  (lsp-completion-enable t))
+
 (use-package! org-roam
   :after org
   :config
-  (org-roam-db-autosync-mode)
-  )
+  (org-roam-db-autosync-mode))
+
 
 (use-package! super-save
-  :init
+  :custom
+  (super-save-auto-save-when-idle t)
+  (auto-save-default nil)
   :config
   (super-save-mode +1)
-  (setq super-save-auto-save-when-idle t)
-  (setq auto-save-default nil)
-  (add-to-list 'super-save-hook-triggers 'find-file-hook)
-  )
+  (add-to-list 'super-save-hook-triggers 'find-file-hook))
+
 
 (use-package! abysl-term
   :load-path "lib"
@@ -47,32 +53,8 @@
   (map! :leader
         :prefix ("o" . "open")
         :desc "[o]pen abysl-term [s]hell"
-        "s" #'abysl-term-open-shell)
-  (map! :leader
-        :desc "Sync Doom and Restart"
-        :nv
-        "q t" (lambda ()
-                (interactive)
-                (abysl-term-run "doom sync"
-                                (lambda (exit-codes output)
-                                  (message "exit hook called")
-                                  (if (cl-every (lambda (x) (eq x 0)) exit-codes)
-                                      (doom/restart-and-restore))))))
-  (map! :leader
-        :mode nix-mode
-        :prefix ("c" . "colmena")
-        :desc "Colmena apply-local --sudo" "l"
-        (lambda ()
-          (interactive)
-          (abysl-term-run "colmena apply-local --sudo"))
+        "s" #'abysl-term-open-shell))
 
-        :desc "Colmena apply with tags" "a"
-        (lambda ()
-          (interactive)
-          (let* ((tags (read-string "Enter tags (space or comma separated): "))
-                 (formatted-tags (mapconcat 'identity (split-string tags "[ ,]+" t) ",")))
-            (abysl-term-run (format "colmena apply --on %s" formatted-tags)))))
-  )
 
 (after! exec-path-from-shell (exec-path-from-shell-initialize))
 
@@ -87,11 +69,11 @@ the selected text if any."
   (let* ((selected-text (if (use-region-p)
                             (concat (buffer-substring-no-properties (region-beginning) (region-end))
                                     (file-name-extension (buffer-file-name) t)) ;; Add the extension
-                          nil))
-         (file (projectile-completing-read "Insert Link: "
-                                           (projectile-current-project-files)
-                                           :initial-input selected-text))
-         (file-display (file-name-sans-extension (file-name-nondirectory file)))) ;; Display without extension
+                          nil)
+                        (file (projectile-completing-read "Insert Link: "
+                                                          (projectile-current-project-files)
+                                                          :initial-input selected-text))
+                        (file-display (file-name-sans-extension (file-name-nondirectory file))))) ;; Display without extension
     (when file
       ;; If text is selected, replace it with the link
       (when (use-region-p)
@@ -122,40 +104,37 @@ and format the link as [name.ext](name). The inserted link replaces the selected
   (key-chord-mode t)
   :config
   (key-chord-define evil-insert-state-map "fd" 'evil-normal-state)
-  (key-chord-define evil-insert-state-map "FD" 'evil-normal-state)
-  )
+  (key-chord-define evil-insert-state-map "FD" 'evil-normal-state))
+
 
 (map! :map 'evil-normal-state-map
       :leader
       "j l" 'evil-join
-      "p v" '+treemacs/toggle
-      )
+      "p v" '+treemacs/toggle)
+
 
 (map!
  :mode org-mode
  :localleader
- "l p" 'projectile-insert-org-link
- )
+ "l p" 'projectile-insert-org-link)
+
 
 (map!
  :mode markdown-mode
  :localleader
- "l p" 'projectile-insert-md-link
- )
+ "l p" 'projectile-insert-md-link)
+
 
 (map! :map 'evil-normal-state-map
       "J" 'centaur-tabs-backward
-      "K" 'centaur-tabs-forward
-      )
+      "K" 'centaur-tabs-forward)
+
 
 (map! :leader
       :desc "List Flycheck errors"
       :mode flycheck-mode
       :nv
-      "e l" #'flycheck-list-errors
-      )
-
-
+      "e l" #'flycheck-list-errors)
 
 
 ;; Load Profile
