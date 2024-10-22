@@ -1,7 +1,7 @@
 ;; Load libs
 (add-to-list 'load-path (expand-file-name "lib" doom-user-dir))
 ;; Startup
-                                        ;(add-to-list 'default-frame-alist '(fullscreen . maximized))
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
 (setq shell-file-name (executable-find "bash"))
 
 ;; User Config
@@ -23,7 +23,7 @@
 (use-package! org-roam
   :after org
   :config
-  (org-roam-db-autosync-mode))
+  (Org-roam-db-autosync-mode))
 
 
 (use-package! super-save
