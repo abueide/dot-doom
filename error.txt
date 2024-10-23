@@ -1,1 +1,0 @@
-:command ("/bin/sh" "-c" "stty -nl echo rows 40 columns 168 sane 2>NUL;if [ $1 = .. ]; then shift; fi; exec \"$@\"" ".." "winpty" "bash" "--login" "-i"))

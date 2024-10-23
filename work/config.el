@@ -17,7 +17,6 @@
 
 
 ;; Package Config
-
 (setq org-directory "~/work/notes")
 
 

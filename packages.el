@@ -8,10 +8,11 @@
 (package! exec-path-from-shell)
 (package! org-projectile)
 (package! lsp-ui)
+(package! simple-httpd)
 
 
 (let ((profile (getenv "EMACS_PROFILE")))
-     (cond
-      ((string= profile "work") (load! "work/packages.el"))
-      ((string= profile "home") (load! "home/packages.el"))
-      (t (load! "home/packages.el")))) ;; default profile 
+  (cond
+   ((string= profile "work") (load! "work/packages.el"))
+   ((string= profile "home") (load! "home/packages.el"))
+   (t (load! "home/packages.el")))) ;; default profile
